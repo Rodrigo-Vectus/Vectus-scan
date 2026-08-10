@@ -13,8 +13,9 @@ Se construye **por fases**. Estado actual:
 | Fase | Descripción | Estado |
 |------|-------------|--------|
 | **F0** | Scaffolding + Docker + repo | ✅ hecha |
-| **F1** | UI base y selección de análisis (formulario + compuerta de autorización) | ✅ actual |
-| F2 | Motor BIEC y ejecución por etapas | pendiente |
+| **F1** | UI base y selección de análisis (formulario + compuerta de autorización) | ✅ hecha |
+| **F2a** | Motor BIEC: ejecución por etapas, guardado de salidas crudas, estado y cronómetro (polling) | ✅ actual |
+| F2b | WebSocket en vivo + afinado de timeouts/rate-limits | pendiente |
 | F3 | Parseo y consolidación de hallazgos | pendiente |
 | F4 | Informe `.docx` sobre plantilla VECTUS | pendiente |
 | F5 | Historial y dashboard | pendiente |
@@ -176,6 +177,8 @@ En el frontend, la tarjeta muestra un indicador **verde** si el backend responde
 | `POST` | `/scans` | Crea proyecto + autorización + scan. **Rechaza con 422 sin autorización confirmada o si se pide un tipo distinto de BIEC** |
 | `GET` | `/scans` | Lista de scans (más reciente primero) |
 | `GET` | `/scans/{id}` | Detalle de un scan |
+| `POST` | `/scans/{id}/launch` | **Re-verifica autorización**, crea las 5 etapas y encola el BIEC. 403 sin autorización · 409 si ya fue lanzado |
+| `GET` | `/scans/{id}/progress` | Estado de ejecución: etapas, tool runs y tiempos (polling) |
 
 El **principio rector se aplica en el servidor**, no solo en el front: la validación de autorización vive en el schema de la API, así que aunque se saltee la UI, no se crea un scan sin permiso. En producción estos endpoints se consumen vía el proxy `/api` del frontend (ej. `POST /api/scans`).
 
@@ -185,9 +188,23 @@ El esquema se gestiona con Alembic. El `entrypoint.sh` del backend corre `alembi
 
 ---
 
-## Nota de red del worker (Fase 2)
+## Motor BIEC (Fase 2a)
 
-Algunas herramientas del BIEC (nmap SYN, `ssl-enum-ciphers`) requieren capacidades de red (`NET_RAW`). Se contemplará en el compose del worker de forma **acotada** (`cap_add`), evitando `--privileged` global. Se documenta al implementar la Fase 2.
+El worker ejecuta las 5 etapas del BIEC en orden contra el objetivo autorizado y **guarda la salida cruda** de cada herramienta en el volumen `scandata` (`/data/scans/<scan_id>/<etapa>/<tool>`). En F2a **no se interpreta** ninguna salida: el parseo y la consolidación a hallazgos son la Fase 3.
+
+Herramientas por etapa: reconocimiento (nmap, whatweb, dig, whois) · enumeración (subfinder, pasivo, solo contexto) · descubrimiento (ffuf con wordlist curada) · vulnerabilidades (nuclei, nikto) · configuración (curl headers, nmap ssl-enum-ciphers).
+
+Refuerzos del principio rector en el motor: se **re-verifica la autorización** antes de ejecutar; el barrido corre **solo contra el target autorizado**; los subdominios de subfinder son **contexto** y no se escanean; y todos los comandos se arman con **listas de argumentos (sin shell)** con validación estricta del target, para que un objetivo malicioso no derive en inyección de comandos ni de flags.
+
+**Red en Docker:** el worker corre con `cap_add: [NET_RAW]` (para nmap SYN y `ssl-enum-ciphers`), acotado a ese servicio y sin `--privileged`.
+
+**Binarios Go:** nuclei, subfinder y ffuf se descargan de sus releases oficiales en el build (versiones fijadas por `ARG`, sobreescribibles con `--build-arg`).
+
+---
+
+## Nota (Fase 2b)
+
+El WebSocket para push en vivo y el afinado fino de timeouts/rate-limits quedan para F2b; el motor ya publica eventos de progreso en Redis para que F2b solo agregue el consumidor.
 
 ---
 

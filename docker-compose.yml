@@ -54,7 +54,17 @@ services:
   worker:
     build: ./worker
     env_file: .env
+    # NET_RAW: nmap SYN / ssl-enum-ciphers necesitan sockets crudos.
+    # Acotado al worker; sin --privileged global.
+    cap_add:
+      - NET_RAW
+    environment:
+      SCAN_DATA_ROOT: /data/scans
+    volumes:
+      - scandata:/data/scans
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     restart: unless-stopped
@@ -69,3 +79,4 @@ services:
 
 volumes:
   pgdata:
+  scandata:

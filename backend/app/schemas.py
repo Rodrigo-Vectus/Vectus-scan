@@ -99,3 +99,40 @@ class AnalysisTypeInfo(BaseModel):
     label: str
     description: str
     enabled: bool
+
+
+# ─── Progreso de ejecución (F2) ─────────────────────────────────────
+
+class ToolRunRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tool: str
+    status: str
+    exit_code: int | None
+    started_at: datetime | None
+    finished_at: datetime | None
+
+
+class ScanStageRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    order: int
+    key: str
+    label: str
+    status: str
+    started_at: datetime | None
+    finished_at: datetime | None
+    tool_runs: list[ToolRunRead]
+
+
+class ScanProgress(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    status: ScanStatus
+    estimated_seconds: int | None
+    started_at: datetime | None
+    finished_at: datetime | None
+    stages: list[ScanStageRead]

@@ -39,3 +39,6 @@ export const createScan = (body) =>
   req("/scans", { method: "POST", body: JSON.stringify(body) });
 export const listScans = () => req("/scans");
 export const getScan = (id) => req(`/scans/${id}`);
+export const launchScan = (id) =>
+  req(`/scans/${id}/launch`, { method: "POST" });
+export const getProgress = (id) => req(`/scans/${id}/progress`);
