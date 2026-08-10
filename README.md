@@ -12,8 +12,8 @@ Se construye **por fases**. Estado actual:
 
 | Fase | Descripción | Estado |
 |------|-------------|--------|
-| **F0** | Scaffolding + Docker + repo | ✅ actual |
-| F1 | UI base y selección de análisis (formulario + checkbox de autorización) | pendiente |
+| **F0** | Scaffolding + Docker + repo | ✅ hecha |
+| **F1** | UI base y selección de análisis (formulario + compuerta de autorización) | ✅ actual |
 | F2 | Motor BIEC y ejecución por etapas | pendiente |
 | F3 | Parseo y consolidación de hallazgos | pendiente |
 | F4 | Informe `.docx` sobre plantilla VECTUS | pendiente |
@@ -69,12 +69,18 @@ vectus-scan/
 ├── .env.example                  # plantilla de configuración (copiar a .env)
 ├── backend/                      # API FastAPI
 │   ├── Dockerfile
+│   ├── entrypoint.sh             # corre migraciones y arranca la API
+│   ├── alembic.ini               # config de migraciones
+│   ├── alembic/                  # entorno + versiones de migración
 │   ├── requirements.txt
 │   └── app/
-│       ├── main.py               # /health, endpoints de smoke-test
+│       ├── main.py               # health + routers
 │       ├── config.py             # settings (pydantic-settings)
-│       ├── db.py                 # engine SQLAlchemy + check
-│       └── celery_client.py      # despacho de tareas al worker
+│       ├── db.py                 # engine SQLAlchemy + get_db
+│       ├── models.py             # Project, Authorization, Scan
+│       ├── schemas.py            # validación (incl. autorización)
+│       ├── celery_client.py      # despacho de tareas al worker
+│       └── routers/              # meta (analysis-types) + scans
 ├── worker/                       # worker Celery
 │   ├── Dockerfile
 │   ├── requirements.txt
@@ -131,23 +137,51 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 ## Verificación (smoke-test de F0)
 
-Con los contenedores arriba:
+> **Importante:** la URL depende del modo de arranque.
+> - En **producción** el backend NO publica el puerto 8000 al host; se accede vía el proxy `/api` del frontend → usar `http://localhost:8080/api/...`.
+> - En **desarrollo** el override expone el backend directo → usar `http://localhost:8000/...`.
+
+### En producción (`docker-compose.prod.yml`)
 
 ```bash
-# 1) Salud integral: db y redis deben dar true
-curl -s http://localhost:8000/health
+# 1) Salud integral vía el proxy del frontend: db y redis deben dar true
+curl -s http://localhost:8080/api/health
 # => {"status":"ok","checks":{"database":true,"redis":true}, ...}
 
 # 2) Circuito backend → Redis → worker
-TASK=$(curl -s -X POST http://localhost:8000/debug/ping-worker | grep -o '"task_id":"[^"]*"' | cut -d'"' -f4)
+TASK=$(curl -s -X POST http://localhost:8080/api/debug/ping-worker | grep -o '"task_id":"[^"]*"' | cut -d'"' -f4)
 sleep 2
-curl -s http://localhost:8000/debug/task/$TASK
+curl -s http://localhost:8080/api/debug/task/$TASK
 # => {"status":"SUCCESS","result":{"pong":true, ...}}
+```
+
+### En desarrollo (override auto-aplicado)
+
+```bash
+curl -s http://localhost:8000/health
 ```
 
 En el frontend, la tarjeta muestra un indicador **verde** si el backend responde `ok`.
 
 > Los endpoints `/debug/*` existen solo para validar la plomería en F0 y se eliminan cuando llega el motor real en la Fase 2.
+
+---
+
+## API (Fase 1)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `GET` | `/health` | Estado de Postgres y Redis |
+| `GET` | `/analysis-types` | Tipos de análisis (BIEC activo; bajo/alto deshabilitados) |
+| `POST` | `/scans` | Crea proyecto + autorización + scan. **Rechaza con 422 sin autorización confirmada o si se pide un tipo distinto de BIEC** |
+| `GET` | `/scans` | Lista de scans (más reciente primero) |
+| `GET` | `/scans/{id}` | Detalle de un scan |
+
+El **principio rector se aplica en el servidor**, no solo en el front: la validación de autorización vive en el schema de la API, así que aunque se saltee la UI, no se crea un scan sin permiso. En producción estos endpoints se consumen vía el proxy `/api` del frontend (ej. `POST /api/scans`).
+
+### Migraciones (Alembic)
+
+El esquema se gestiona con Alembic. El `entrypoint.sh` del backend corre `alembic upgrade head` **automáticamente al arrancar** el contenedor (tanto en dev como en prod), antes de levantar la API. No hay que correr migraciones a mano.
 
 ---
 
