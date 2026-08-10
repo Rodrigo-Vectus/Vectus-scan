@@ -1,0 +1,10 @@
+# Override de PRODUCCIÓN. Aplicar explícitamente en el server:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+services:
+  backend:
+    environment:
+      ENVIRONMENT: production
+
+  frontend:
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"

@@ -1,0 +1,25 @@
+# Override de DESARROLLO. Se aplica automáticamente con `docker compose up`.
+# Hot-reload de backend y frontend, y puertos expuestos para debug.
+services:
+  backend:
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./backend/app:/app/app
+    ports:
+      - "8000:8000"   # API + /docs directos en dev
+    environment:
+      ENVIRONMENT: development
+
+  worker:
+    volumes:
+      - ./worker/worker:/app/worker
+
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"   # servidor Vite con hot-reload

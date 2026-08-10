@@ -1,0 +1,71 @@
+name: vectus-scan
+
+# ─────────────────────────────────────────────────────────────────────
+# Compose BASE. Define los servicios compartidos, healthchecks, red y
+# volúmenes. No expone puertos de host aquí (lo hacen los overrides).
+#
+#   • Desarrollo local:  docker compose up --build
+#       (aplica automáticamente docker-compose.override.yml)
+#
+#   • Producción (Ubuntu Server): NO usar el override de dev:
+#       docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# ─────────────────────────────────────────────────────────────────────
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vectus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vectus}
+      POSTGRES_DB: ${POSTGRES_DB:-vectus_scan}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vectus} -d ${POSTGRES_DB:-vectus_scan}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  worker:
+    build: ./worker
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      target: prod
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  pgdata:
