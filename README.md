@@ -14,8 +14,8 @@ Se construye **por fases**. Estado actual:
 |------|-------------|--------|
 | **F0** | Scaffolding + Docker + repo | ✅ hecha |
 | **F1** | UI base y selección de análisis (formulario + compuerta de autorización) | ✅ hecha |
-| **F2a** | Motor BIEC: ejecución por etapas, guardado de salidas crudas, estado y cronómetro (polling) | ✅ actual |
-| F2b | WebSocket en vivo + afinado de timeouts/rate-limits | pendiente |
+| **F2a** | Motor BIEC: ejecución por etapas, guardado de salidas crudas, estado y cronómetro (polling) | ✅ hecha |
+| **F2b** | WebSocket en vivo (fallback a polling) + semántica de estado de tool + afinado de timeouts/rate-limits | ✅ actual |
 | F3 | Parseo y consolidación de hallazgos | pendiente |
 | F4 | Informe `.docx` sobre plantilla VECTUS | pendiente |
 | F5 | Historial y dashboard | pendiente |
@@ -179,6 +179,7 @@ En el frontend, la tarjeta muestra un indicador **verde** si el backend responde
 | `GET` | `/scans/{id}` | Detalle de un scan |
 | `POST` | `/scans/{id}/launch` | **Re-verifica autorización**, crea las 5 etapas y encola el BIEC. 403 sin autorización · 409 si ya fue lanzado |
 | `GET` | `/scans/{id}/progress` | Estado de ejecución: etapas, tool runs y tiempos (polling) |
+| `WS` | `/ws/scans/{id}` | Push en vivo del progreso (F2b). Reenvía los eventos del canal Redis `scan:<id>`; el front cae a polling si el WS falla |
 
 El **principio rector se aplica en el servidor**, no solo en el front: la validación de autorización vive en el schema de la API, así que aunque se saltee la UI, no se crea un scan sin permiso. En producción estos endpoints se consumen vía el proxy `/api` del frontend (ej. `POST /api/scans`).
 
@@ -202,9 +203,13 @@ Refuerzos del principio rector en el motor: se **re-verifica la autorización** 
 
 ---
 
-## Nota (Fase 2b)
+## Estado en vivo (Fase 2b)
 
-El WebSocket para push en vivo y el afinado fino de timeouts/rate-limits quedan para F2b; el motor ya publica eventos de progreso en Redis para que F2b solo agregue el consumidor.
+El progreso se transmite en vivo por **WebSocket** (`/ws/scans/{id}`): el motor del worker publica eventos en el canal Redis `scan:<id>` y el backend los reenvía al navegador. Cada evento es un aviso de cambio; el front, al recibirlo, vuelve a pedir `/scans/{id}/progress` (la base de datos sigue siendo la fuente de verdad). Si el WebSocket no conecta o se cae, el front **cae automáticamente a polling** cada 2,5 s, así que la vista funciona igual. nginx reenvía el upgrade del WebSocket en el mismo `location /api/`.
+
+**Semántica de estado de herramienta:** una tool se marca `completada` si terminó con éxito (exit 0) **o** si dejó salida cruda no vacía aunque su exit sea ≠ 0 (caso típico: nikto reporta hallazgos pero corta por `maxtime`). El `exit_code` real se guarda siempre para auditoría.
+
+**Afinado:** nuclei corre con `-timeout 10 -retries 1` además del rate-limit; los timeouts de subproceso y las estimaciones por etapa se calibraron con corridas reales.
 
 ---
 

@@ -42,3 +42,21 @@ export const getScan = (id) => req(`/scans/${id}`);
 export const launchScan = (id) =>
   req(`/scans/${id}/launch`, { method: "POST" });
 export const getProgress = (id) => req(`/scans/${id}/progress`);
+
+// WebSocket de progreso en vivo (F2b). Cada mensaje es un "aviso" de cambio;
+// el llamador reacciona volviendo a pedir getProgress. Devuelve el socket
+// para poder cerrarlo. Los mensajes tipo "ping" se ignoran.
+export function openProgressSocket(id, onNudge) {
+  const proto = window.location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${proto}://${window.location.host}/api/ws/scans/${id}`);
+  ws.onmessage = (ev) => {
+    let m = null;
+    try {
+      m = JSON.parse(ev.data);
+    } catch {
+      /* mensaje no-JSON: igual tratamos como aviso */
+    }
+    if (!m || m.type !== "ping") onNudge(m);
+  };
+  return ws;
+}

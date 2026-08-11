@@ -30,6 +30,14 @@ def _now():
     return datetime.now(timezone.utc)
 
 
+def _has_output(path) -> bool:
+    """True si la herramienta dejó un archivo de salida no vacío."""
+    try:
+        return bool(path) and os.path.getsize(path) > 0
+    except OSError:
+        return False
+
+
 def _publish(scan_id: int, payload: dict) -> None:
     """Publica un evento de progreso en Redis. No es crítico: si falla, se
     ignora (el polling sobre la DB sigue siendo la fuente de verdad)."""
@@ -117,9 +125,15 @@ def _run_stage(db, scan_id, stage, tgt, runner, publish, data_root):
                 result = runner(spec, out_dir)
                 tr.exit_code = result.exit_code
                 tr.raw_path = result.raw_path
-                # Un exit_code != 0 no invalida la etapa (p. ej. errores de
-                # nuclei bajo throttling son normales; B.8). Se registra igual.
-                tr.status = "completada" if result.exit_code == 0 else "error"
+                # Una tool es "completada" si terminó bien (exit 0) o si dejó
+                # salida cruda no vacía aunque el exit sea != 0. Caso típico:
+                # nikto reporta hallazgos y escribe su .txt, pero corta por
+                # `maxtime` con exit != 0 (B.8). El exit_code se guarda igual.
+                tr.status = (
+                    "completada"
+                    if result.exit_code == 0 or _has_output(result.raw_path)
+                    else "error"
+                )
             except Exception as e:  # falla inesperada del runner
                 tr.status = "error"
                 tr.error = str(e)

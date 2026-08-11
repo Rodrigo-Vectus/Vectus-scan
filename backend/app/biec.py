@@ -7,10 +7,10 @@ estimar la duración. El worker referencia las mismas `key` al ejecutar
 
 STAGES = [
     {"order": 1, "key": "reconocimiento", "label": "Reconocimiento", "est": 60},
-    {"order": 2, "key": "enumeracion", "label": "Enumeración", "est": 40},
-    {"order": 3, "key": "descubrimiento", "label": "Descubrimiento de contenido", "est": 120},
-    {"order": 4, "key": "vulnerabilidades", "label": "Escaneo de vulnerabilidades", "est": 240},
-    {"order": 5, "key": "configuracion", "label": "Configuración de seguridad", "est": 40},
+    {"order": 2, "key": "enumeracion", "label": "Enumeración", "est": 90},
+    {"order": 3, "key": "descubrimiento", "label": "Descubrimiento de contenido", "est": 90},
+    {"order": 4, "key": "vulnerabilidades", "label": "Escaneo de vulnerabilidades", "est": 480},
+    {"order": 5, "key": "configuracion", "label": "Configuración de seguridad", "est": 60},
 ]
 
 STAGE_KEYS = [s["key"] for s in STAGES]

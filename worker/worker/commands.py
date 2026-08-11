@@ -105,6 +105,7 @@ def _vulnerabilidades(tgt: Target, out_dir: str) -> list[ToolSpec]:
             [
                 "nuclei", "-u", tgt.url, "-jsonl", "-o", _p(out_dir, "nuclei.jsonl"),
                 "-no-interactsh", "-rl", "50", "-c", "20",
+                "-timeout", "10", "-retries", "1",
             ],
             _p(out_dir, "nuclei.jsonl"),
             False,
@@ -115,7 +116,7 @@ def _vulnerabilidades(tgt: Target, out_dir: str) -> list[ToolSpec]:
             ["nikto", "-h", tgt.url, "-o", _p(out_dir, "nikto.txt"), "-Format", "txt", "-maxtime", "300s"],
             _p(out_dir, "nikto.txt"),
             False,
-            400,
+            360,
         ),
     ]
 
@@ -124,7 +125,7 @@ def _configuracion(tgt: Target, out_dir: str) -> list[ToolSpec]:
     return [
         ToolSpec(
             "curl_headers",
-            ["curl", "-sSIL", "--compressed", "--max-time", "30", tgt.url],
+            ["curl", "-sSL", "-D", "-", "-o", "/dev/null", "--compressed", "--max-time", "30", tgt.url],
             _p(out_dir, "headers.txt"),
             True,
             60,

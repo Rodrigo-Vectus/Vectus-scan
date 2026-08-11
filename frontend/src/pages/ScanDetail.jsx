@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   getScan,
   getProgress,
   launchScan,
+  openProgressSocket,
   messagesFromError,
 } from "../api.js";
 
@@ -126,30 +127,76 @@ export default function ScanDetail() {
   const [prog, setProg] = useState(null);
   const [error, setError] = useState(null);
   const [launching, setLaunching] = useState(false);
-  const pollRef = useRef(null);
 
   useEffect(() => {
     getScan(id)
       .then(setScan)
       .catch((e) => setError(messagesFromError(e)[0]));
-    getProgress(id)
-      .then(setProg)
-      .catch(() => {});
   }, [id]);
 
-  const running = prog && RUNNING.has(prog.status);
-
+  // Progreso en vivo: WebSocket como canal principal, polling como respaldo.
+  // La DB es la fuente de verdad: ante cualquier aviso (WS o tick) se vuelve
+  // a pedir getProgress. Al llegar a estado terminal se corta todo.
   useEffect(() => {
-    if (!running) return;
-    pollRef.current = setInterval(async () => {
-      try {
-        setProg(await getProgress(id));
-      } catch {
-        /* red intermitente: el próximo tick reintenta */
+    let ws = null;
+    let poll = null;
+    let debounce = null;
+    let stopped = false;
+
+    const teardown = () => {
+      stopped = true;
+      if (ws) {
+        try {
+          ws.close();
+        } catch {
+          /* noop */
+        }
+        ws = null;
       }
-    }, 2000);
-    return () => clearInterval(pollRef.current);
-  }, [running, id]);
+      if (poll) {
+        clearInterval(poll);
+        poll = null;
+      }
+      clearTimeout(debounce);
+    };
+
+    const refetch = async () => {
+      try {
+        const p = await getProgress(id);
+        if (stopped) return;
+        setProg(p);
+        if (p.status === "completado" || p.status === "error") teardown();
+      } catch {
+        /* la próxima señal reintenta */
+      }
+    };
+
+    const nudge = () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(refetch, 250);
+    };
+
+    const startPolling = () => {
+      if (poll || stopped) return;
+      poll = setInterval(refetch, 2500);
+    };
+
+    refetch(); // snapshot inicial
+
+    try {
+      ws = openProgressSocket(id, nudge);
+      ws.onclose = () => {
+        if (!stopped) startPolling();
+      };
+      ws.onerror = () => {
+        if (!stopped) startPolling();
+      };
+    } catch {
+      startPolling();
+    }
+
+    return teardown;
+  }, [id]);
 
   const launch = async () => {
     setLaunching(true);

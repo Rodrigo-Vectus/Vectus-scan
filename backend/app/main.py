@@ -1,6 +1,7 @@
 import redis
+import redis.asyncio as aioredis
 from celery.result import AsyncResult
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.celery_client import celery_client
@@ -57,6 +58,52 @@ def health():
         "environment": settings.environment,
         "checks": {"database": db_ok, "redis": redis_ok},
     }
+
+
+@app.websocket("/ws/scans/{scan_id}")
+async def ws_scan_progress(websocket: WebSocket, scan_id: int):
+    """Push en vivo del progreso de un scan (Fase 2b).
+
+    Se suscribe al canal Redis `scan:<id>` que publica el motor del worker y
+    reenvía cada evento al cliente. Los eventos son "avisos" de cambio: el
+    front, al recibirlos, vuelve a pedir `/scans/{id}/progress` (la DB sigue
+    siendo la fuente de verdad). Si el WebSocket falla, el front cae a polling.
+    """
+    await websocket.accept()
+    client = aioredis.Redis(
+        host=settings.redis_host, port=settings.redis_port
+    )
+    pubsub = client.pubsub()
+    await pubsub.subscribe(f"scan:{scan_id}")
+    try:
+        await websocket.send_json({"type": "hello", "scan_id": scan_id})
+        while True:
+            msg = await pubsub.get_message(
+                ignore_subscribe_messages=True, timeout=30
+            )
+            if msg is None:
+                # Silencio: mandamos un ping para detectar sockets muertos y
+                # evitar que proxies intermedios corten la conexión ociosa.
+                await websocket.send_json({"type": "ping"})
+                continue
+            data = msg["data"]
+            if isinstance(data, bytes):
+                data = data.decode()
+            await websocket.send_text(data)
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        for close in (
+            lambda: pubsub.unsubscribe(f"scan:{scan_id}"),
+            lambda: pubsub.aclose(),
+            lambda: client.aclose(),
+        ):
+            try:
+                await close()
+            except Exception:
+                pass
 
 
 # ─── Endpoints de depuración (solo F0) ──────────────────────────────
