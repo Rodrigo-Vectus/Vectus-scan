@@ -246,6 +246,8 @@ El informe se genera **a pedido** con el botón *exportar informe (.docx)* de la
 
 Regla de oro (B.12): a la tabla de vulnerabilidades entran solo hallazgos **confirmados** de severidad crítica/alta/media/baja. Los `info` (contexto), la buena postura (`positivo`) y las áreas a validar (`a_validar`) no son vulnerabilidades y no se cuentan ahí. Si no hay vulnerabilidades confirmadas, el informe lo dice honestamente.
 
+Cada vulnerabilidad se enriquece con un **catálogo curado por tipo** (`report_catalog.py`): descripción técnica, desglose CVSS 3.1 completo (vector, complejidad, privilegios, interacción, impactos, alcance), recomendación para el equipo técnico y referencias. Los hallazgos sin ficha (p. ej. de nuclei) usan sus propios datos con un desglose por defecto según la severidad. La conclusión deriva las prioridades de los hallazgos reales y no deja placeholders de plantilla.
+
 El nombre del **cliente** se toma del campo del formulario de creación del scan (`scans.cliente`), con respaldo al cliente/nombre del proyecto. La plantilla vive embebida en `backend/app/report_template/`.
 
 ---

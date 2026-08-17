@@ -100,22 +100,39 @@ def _fill_finding_block(elements, idx, f):
             elif "URLCOMPLETA" in t:
                 _xml_replace(p, "https://URLCOMPLETA", f.get("sistema") or "—")
             elif t.strip() == "CVE de referencia a las vulnerabilidades":
-                _set_text(p, f.get("cve") or "No aplica")
+                _set_text(p, f.get("cve_line") or f.get("cve") or "No aplica")
             elif t.strip() == "Plan de remediación a realizar":
                 _set_text(p, f.get("recomendacion") or "—")
             elif "Mas links para que el cliente" in t:
                 _set_text(p, f.get("mas_info") or "—")
         elif el.tag.endswith("}tbl"):
             tb = Table(el, None)
+            labelval = {
+                "vector de ataque": f.get("vector", ""),
+                "complejidad": f.get("complejidad", ""),
+                "privilegios": f.get("privilegios", ""),
+                "interacción": f.get("interaccion", ""),
+                "alcance": f.get("alcance", ""),
+                "confidencialidad": f.get("imp_c", ""),
+                "integridad": f.get("imp_i", ""),
+                "disponibilidad": f.get("imp_d", ""),
+            }
             for row in tb.rows:
-                for cell in row.cells:
-                    ct = cell.text.replace("\u200b", "").strip()
-                    if ct.startswith("Severidad"):
-                        _set_cell(cell, f"Severidad: {SEV_LABEL.get(f['severidad'], f['severidad'])}")
-                    elif ct.startswith("CVSS"):
-                        _set_cell(cell, f"CVSS: {f.get('cvss') or 'N/D'}")
-                    elif ct.startswith("Ocurrencias"):
-                        _set_cell(cell, f"Ocurrencias: {f.get('ocurrencias', 1)}")
+                cells = row.cells
+                c0 = cells[0].text.replace("\u200b", "").strip()
+                if c0.startswith("Severidad"):
+                    _set_cell(cells[0], f"Severidad: {SEV_LABEL.get(f['severidad'], f['severidad'])}")
+                elif c0.startswith("CVSS"):
+                    _set_cell(cells[0], f"CVSS: {f.get('cvss') or 'N/D'}")
+                elif c0.startswith("Ocurrencias"):
+                    _set_cell(cells[0], f"Ocurrencias: {f.get('ocurrencias', 1)}")
+                for li, vi in ((1, 2), (3, 4)):
+                    if len(cells) > vi:
+                        lbl = cells[li].text.replace("\u200b", "").strip().lower()
+                        for key, val in labelval.items():
+                            if key in lbl and val:
+                                _set_cell(cells[vi], val)
+                                break
 
 
 # ─── construcción del contexto desde los hallazgos ───────────────────
@@ -127,22 +144,25 @@ def _host(target: str) -> str:
 
 def build_context(target, cliente, ip, findings):
     """findings: lista de objetos con atributos tipo Finding."""
+    from app import report_catalog
+
     vulns = []
     for f in findings:
         if f.estado == "confirmado" and f.severidad in _VULN_SEVS:
-            vulns.append(
-                {
-                    "titulo": f.titulo,
-                    "severidad": f.severidad,
-                    "cvss": (str(f.cvss) if getattr(f, "cvss", None) else None),
-                    "ocurrencias": getattr(f, "ocurrencias", 1) or 1,
-                    "sistema": f.sistema_afectado or "—",
-                    "descripcion": f.evidencia or f.titulo,
-                    "cve": f.cve or "No aplica",
-                    "recomendacion": f.recomendacion or "—",
-                    "mas_info": f.mas_info or "—",
-                }
-            )
+            v = {
+                "titulo": f.titulo,
+                "severidad": f.severidad,
+                "cvss": (str(f.cvss) if getattr(f, "cvss", None) else None),
+                "ocurrencias": getattr(f, "ocurrencias", 1) or 1,
+                "sistema": f.sistema_afectado or "—",
+                "evidencia": f.evidencia or "",
+                "cve": f.cve or "No aplica",
+                "cwe": getattr(f, "cwe", None),
+                "recomendacion": f.recomendacion or "—",
+                "mas_info": f.mas_info or "—",
+                "dedup_key": getattr(f, "dedup_key", ""),
+            }
+            vulns.append(report_catalog.enrich(v))
     vulns.sort(key=lambda v: SEV_ORDER.get(v["severidad"], 9))
     alcance = target + (f" (IP {ip})" if ip else "")
     return {"cliente": cliente or _host(target), "alcance": alcance, "vulnerabilidades": vulns}
@@ -219,6 +239,17 @@ def generate_bytes(context) -> bytes:
     # conclusión
     n = len(vulns)
     principal = vulns[0]["titulo"] if vulns else "sin vulnerabilidades confirmadas"
+    riesgo_txt = (
+        f"El riesgo más relevante encontrado corresponde a {principal}, que representa "
+        "una amenaza directa para la seguridad de los activos evaluados (p. ej. acceso no "
+        "autorizado, pérdida de datos sensibles o indisponibilidad de servicio)."
+        if vulns else
+        "No se identificaron vulnerabilidades confirmadas en este barrido. Se registran, de "
+        "corresponder, observaciones de contexto y áreas a validar en profundidad."
+    )
+    for p in doc.paragraphs:
+        if p.text.strip().startswith("El riesgo más relevante encontrado corresponde a"):
+            _set_text(p, riesgo_txt)
     for p in doc.paragraphs:
         _merge_replace(p, "[N]\nvulnerabilidades", f"{n} vulnerabilidades")
         _merge_replace(p, "[N] vulnerabilidades", f"{n} vulnerabilidades")
@@ -230,6 +261,59 @@ def generate_bytes(context) -> bytes:
         _merge_replace(p, "[N] bajas", f"{tot['baja']} bajas")
         _merge_replace(p, "[vulnerabilidad\nprincipal]", principal)
         _merge_replace(p, "[vulnerabilidad principal]", principal)
+
+    # Limpieza de la narrativa de la conclusión: quitar placeholders y derivar
+    # las prioridades de los hallazgos reales (en vez del ejemplo de la plantilla).
+    crit = [v for v in vulns if v["severidad"] == "critica"]
+    alto = [v for v in vulns if v["severidad"] == "alta"]
+    medio = [v for v in vulns if v["severidad"] in ("media", "baja")]
+
+    def _band(items, empty):
+        if not items:
+            return empty
+        return "Remediar: " + "; ".join(v["titulo"] for v in items[:6]) + "."
+
+    prio = {
+        "Actualizar Lodash": _band(crit, "No se identificaron vulnerabilidades críticas en este barrido."),
+        "Definir CSP estricta": _band(alto, "No se identificaron vulnerabilidades altas en este barrido."),
+        "Eliminar parámetros sensibles": _band(medio, "No se identificaron vulnerabilidades medias ni bajas en este barrido."),
+    }
+    quitar = ("Quitar unsafe-inline", "Implementar tokens anti-CSRF", "Higiene de publicación")
+    impacto = {
+        "[Impacto 1": "Pérdida de información, interrupción de servicio o daño reputacional.",
+        "[Impacto 2": "Sanciones regulatorias, incumplimiento normativo o pérdida financiera.",
+        "[Impacto 3": "Afectación a clientes internos o externos y a la confianza de socios.",
+    }
+    accion = {
+        "[Acción 1": "Validar la aplicación de los parches y configuraciones recomendados.",
+        "[Acción 2": "Realizar una nueva evaluación de verificación tras la remediación.",
+        "[Acción 3": "Establecer una frecuencia de pruebas futuras (trimestral o semestral).",
+    }
+    a_borrar = []
+    for p in doc.paragraphs:
+        t = p.text.strip()
+        _merge_replace(p, "[confidencialidad / integridad / disponibilidad]",
+                       "la confidencialidad, integridad y disponibilidad")
+        _merge_replace(p, "[confidencialidad /\nintegridad / disponibilidad]",
+                       "la confidencialidad, integridad y disponibilidad")
+        done = False
+        for pref, val in prio.items():
+            if t.startswith(pref):
+                _set_text(p, val); done = True; break
+        if done:
+            continue
+        if any(t.startswith(q) for q in quitar):
+            a_borrar.append(p._p); continue
+        for pref, val in impacto.items():
+            if t.startswith(pref):
+                _set_text(p, val); done = True; break
+        if done:
+            continue
+        for pref, val in accion.items():
+            if t.startswith(pref):
+                _set_text(p, val); break
+    for el in a_borrar:
+        el.getparent().remove(el)
 
     buf = io.BytesIO()
     doc.save(buf)
