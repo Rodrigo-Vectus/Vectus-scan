@@ -38,6 +38,7 @@ export const getAnalysisTypes = () => req("/analysis-types");
 export const createScan = (body) =>
   req("/scans", { method: "POST", body: JSON.stringify(body) });
 export const listScans = () => req("/scans");
+export const getDashboard = () => req("/scans/dashboard");
 export const getScan = (id) => req(`/scans/${id}`);
 export const launchScan = (id) =>
   req(`/scans/${id}/launch`, { method: "POST" });

@@ -28,6 +28,10 @@ pgdata/
 *.nmap
 *.xml.raw
 
+# ─── Informes .docx generados (no versionar; la plantilla sí va) ──
+/informe.docx
+/informe-*.docx
+
 # ─── OS / editores ─────────────────────────────────────
 .DS_Store
 Thumbs.db

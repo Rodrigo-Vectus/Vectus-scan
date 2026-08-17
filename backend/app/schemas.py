@@ -87,11 +87,43 @@ class ScanRead(BaseModel):
 
     id: int
     target: str
+    cliente: str | None = None
     analysis_type: AnalysisType
     status: ScanStatus
     created_at: datetime
+    finished_at: datetime | None = None
     project: ProjectRead
     authorization: AuthorizationRead
+
+
+class ScanHistoryRow(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    target: str
+    cliente: str | None = None
+    status: ScanStatus
+    created_at: datetime
+    finished_at: datetime | None = None
+    critica: int = 0
+    alta: int = 0
+    media: int = 0
+    baja: int = 0
+    vulnerabilidades: int = 0
+    a_validar: int = 0
+
+
+class DashboardResponse(BaseModel):
+    total_scans: int
+    completados: int
+    en_curso: int
+    con_error: int
+    vuln_critica: int = 0
+    vuln_alta: int = 0
+    vuln_media: int = 0
+    vuln_baja: int = 0
+    vuln_total: int = 0
+    scans: list[ScanHistoryRow]
 
 
 class AnalysisTypeInfo(BaseModel):

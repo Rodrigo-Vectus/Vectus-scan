@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.biec import ESTIMATED_TOTAL_SECONDS, STAGES
@@ -14,6 +14,7 @@ from app.models import (
     ScanStage,
     ScanStatus,
     STAGE_PENDIENTE,
+    EST_CONFIRMADO,
     EST_POSITIVO,
     EST_A_VALIDAR,
     EST_FALSO_POSITIVO,
@@ -24,6 +25,8 @@ from app.models import (
     SEV_INFO,
 )
 from app.schemas import (
+    DashboardResponse,
+    ScanHistoryRow,
     FindingsResponse,
     ScanCreate,
     ScanProgress,
@@ -71,6 +74,72 @@ def list_scans(db: Session = Depends(get_db)):
     """Lista los scans, del más reciente al más antiguo."""
     scans = db.scalars(select(Scan).order_by(Scan.created_at.desc())).all()
     return scans
+
+
+@router.get("/dashboard", response_model=DashboardResponse)
+def dashboard(db: Session = Depends(get_db)):
+    """Indicadores agregados + historial de barridos (F5).
+
+    Un solo query agrupado calcula los conteos de vulnerabilidades confirmadas
+    por scan; el resumen global es la suma. Solo cuentan como vulnerabilidad los
+    hallazgos confirmados de severidad crítica/alta/media/baja (igual que el
+    informe); positivo/info/a_validar no suman a esas columnas.
+    """
+    scans = db.scalars(select(Scan).order_by(Scan.created_at.desc())).all()
+
+    # conteos por scan en una sola consulta
+    sev_field = {SEV_CRITICA: "critica", SEV_ALTA: "alta", SEV_MEDIA: "media", SEV_BAJA: "baja"}
+    counts: dict[int, dict] = {}
+    rows = (
+        db.query(Finding.scan_id, Finding.severidad, Finding.estado, func.count())
+        .filter(Finding.estado.in_([EST_CONFIRMADO, EST_A_VALIDAR]))
+        .group_by(Finding.scan_id, Finding.severidad, Finding.estado)
+        .all()
+    )
+    for sid, sev, estado, n in rows:
+        c = counts.setdefault(
+            sid, {"critica": 0, "alta": 0, "media": 0, "baja": 0, "vulnerabilidades": 0, "a_validar": 0}
+        )
+        if estado == EST_A_VALIDAR:
+            c["a_validar"] += n
+        elif estado == EST_CONFIRMADO and sev in sev_field:
+            c[sev_field[sev]] += n
+            c["vulnerabilidades"] += n
+
+    history: list[ScanHistoryRow] = []
+    tot = {"critica": 0, "alta": 0, "media": 0, "baja": 0, "total": 0}
+    st = {"completado": 0, "en_curso": 0, "error": 0}
+    for s in scans:
+        c = counts.get(s.id, {})
+        history.append(
+            ScanHistoryRow(
+                id=s.id, target=s.target, cliente=s.cliente, status=s.status,
+                created_at=s.created_at, finished_at=s.finished_at,
+                critica=c.get("critica", 0), alta=c.get("alta", 0),
+                media=c.get("media", 0), baja=c.get("baja", 0),
+                vulnerabilidades=c.get("vulnerabilidades", 0),
+                a_validar=c.get("a_validar", 0),
+            )
+        )
+        for k in ("critica", "alta", "media", "baja"):
+            tot[k] += c.get(k, 0)
+        tot["total"] += c.get("vulnerabilidades", 0)
+        if s.status == ScanStatus.completado:
+            st["completado"] += 1
+        elif s.status == ScanStatus.error:
+            st["error"] += 1
+        elif s.status in (ScanStatus.en_cola, ScanStatus.corriendo):
+            st["en_curso"] += 1
+
+    return DashboardResponse(
+        total_scans=len(scans),
+        completados=st["completado"],
+        en_curso=st["en_curso"],
+        con_error=st["error"],
+        vuln_critica=tot["critica"], vuln_alta=tot["alta"],
+        vuln_media=tot["media"], vuln_baja=tot["baja"], vuln_total=tot["total"],
+        scans=history,
+    )
 
 
 @router.get("/{scan_id}", response_model=ScanRead)

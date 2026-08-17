@@ -18,8 +18,8 @@ Se construye **por fases**. Estado actual:
 | **F2b** | WebSocket en vivo (fallback a polling) + semántica de estado de tool + afinado de timeouts/rate-limits | ✅ hecha |
 | **F3a** | Parseo por herramienta + consolidación/dedup + API y vista de hallazgos | ✅ hecha |
 | **F3b** | Correlación cruzada y control de falsos positivos (nikto vs curl, CVE por versión, CDN/origen) | ✅ hecha |
-| **F4** | Informe `.docx` sobre plantilla VECTUS, a pedido (botón) | ✅ actual |
-| F5 | Historial y dashboard | pendiente |
+| **F4** | Informe `.docx` sobre plantilla VECTUS, a pedido (botón) | ✅ hecha |
+| **F5** | Historial y dashboard | ✅ actual |
 
 De los tres tipos de análisis, en esta etapa solo se implementa el **BIEC** (Barrido Inicial de Exposición Crítica). Bajo Nivel y Alto Nivel quedan como placeholders.
 
@@ -184,6 +184,7 @@ En el frontend, la tarjeta muestra un indicador **verde** si el backend responde
 | `POST` | `/scans/{id}/analyze` | Reprocesa el raw y reconstruye los hallazgos (F3). 409 si el scan no terminó |
 | `GET` | `/scans/{id}/findings` | Hallazgos consolidados + resumen por severidad (F3) |
 | `GET` | `/scans/{id}/report.docx` | Genera y descarga el informe .docx a pedido (F4). 409 si el scan no terminó |
+| `GET` | `/scans/dashboard` | Indicadores agregados + historial de barridos (F5) |
 
 El **principio rector se aplica en el servidor**, no solo en el front: la validación de autorización vive en el schema de la API, así que aunque se saltee la UI, no se crea un scan sin permiso. En producción estos endpoints se consumen vía el proxy `/api` del frontend (ej. `POST /api/scans`).
 
@@ -246,6 +247,12 @@ El informe se genera **a pedido** con el botón *exportar informe (.docx)* de la
 Regla de oro (B.12): a la tabla de vulnerabilidades entran solo hallazgos **confirmados** de severidad crítica/alta/media/baja. Los `info` (contexto), la buena postura (`positivo`) y las áreas a validar (`a_validar`) no son vulnerabilidades y no se cuentan ahí. Si no hay vulnerabilidades confirmadas, el informe lo dice honestamente.
 
 El nombre del **cliente** se toma del campo del formulario de creación del scan (`scans.cliente`), con respaldo al cliente/nombre del proyecto. La plantilla vive embebida en `backend/app/report_template/`.
+
+---
+
+## Historial y dashboard (Fase 5)
+
+La portada muestra una tira de **indicadores** (barridos totales, completados, en curso y vulnerabilidades confirmadas agregadas por severidad) y un **historial** de barridos con fecha, cliente, objetivo, estado, un mini-resumen de severidad por barrido y accesos directos al detalle y al informe `.docx`. Todo se sirve desde `GET /scans/dashboard`, que calcula los conteos por scan con una sola consulta agrupada. Coherente con el resto: solo cuentan como vulnerabilidad los hallazgos confirmados de severidad crítica/alta/media/baja.
 
 ---
 
