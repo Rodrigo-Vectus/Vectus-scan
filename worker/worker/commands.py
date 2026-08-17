@@ -21,6 +21,16 @@ from worker.target import Target
 # worker). Se prefiere una lista acotada por rendimiento y por firewall (B.7).
 WORDLIST = "/usr/share/dirb/wordlists/common.txt"
 
+# User-Agent de navegador real. Muchos WAF/CDN cortan el UA por defecto de las
+# herramientas (curl/whatweb/nikto), devolviendo bloqueos o nada. Con un UA de
+# navegador se obtienen cabeceras y respuestas reales, lo que además habilita
+# el contraste nikto↔curl (B.10). No cambia el alcance: sigue siendo el target
+# autorizado; solo mejora la fidelidad de la respuesta.
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+)
+
 
 @dataclass
 class ToolSpec:
@@ -46,7 +56,7 @@ def _reconocimiento(tgt: Target, out_dir: str) -> list[ToolSpec]:
         ),
         ToolSpec(
             "whatweb",
-            ["whatweb", "-a", "1", "--log-json", _p(out_dir, "whatweb.json"), "--no-errors", tgt.url],
+            ["whatweb", "-a", "1", "--log-json", _p(out_dir, "whatweb.json"), "--no-errors", "-U", USER_AGENT, tgt.url],
             _p(out_dir, "whatweb.json"),
             False,
             120,
@@ -90,6 +100,7 @@ def _descubrimiento(tgt: Target, out_dir: str) -> list[ToolSpec]:
                 "ffuf", "-u", f"{tgt.url}/FUZZ", "-w", WORDLIST,
                 "-of", "json", "-o", _p(out_dir, "ffuf.json"),
                 "-t", "20", "-rate", "50", "-s",
+                "-H", f"User-Agent: {USER_AGENT}",
             ],
             _p(out_dir, "ffuf.json"),
             False,
@@ -106,6 +117,7 @@ def _vulnerabilidades(tgt: Target, out_dir: str) -> list[ToolSpec]:
                 "nuclei", "-u", tgt.url, "-jsonl", "-o", _p(out_dir, "nuclei.jsonl"),
                 "-no-interactsh", "-rl", "50", "-c", "20",
                 "-timeout", "10", "-retries", "1",
+                "-H", f"User-Agent: {USER_AGENT}",
             ],
             _p(out_dir, "nuclei.jsonl"),
             False,
@@ -113,7 +125,7 @@ def _vulnerabilidades(tgt: Target, out_dir: str) -> list[ToolSpec]:
         ),
         ToolSpec(
             "nikto",
-            ["nikto", "-h", tgt.url, "-o", _p(out_dir, "nikto.txt"), "-Format", "txt", "-maxtime", "300s"],
+            ["nikto", "-h", tgt.url, "-o", _p(out_dir, "nikto.txt"), "-Format", "txt", "-maxtime", "300s", "-useragent", USER_AGENT],
             _p(out_dir, "nikto.txt"),
             False,
             360,
@@ -125,7 +137,7 @@ def _configuracion(tgt: Target, out_dir: str) -> list[ToolSpec]:
     return [
         ToolSpec(
             "curl_headers",
-            ["curl", "-sSL", "-D", "-", "-o", "/dev/null", "--compressed", "--max-time", "30", tgt.url],
+            ["curl", "-sSL", "-D", "-", "-o", "/dev/null", "--compressed", "--max-time", "30", "-A", USER_AGENT, tgt.url],
             _p(out_dir, "headers.txt"),
             True,
             60,
