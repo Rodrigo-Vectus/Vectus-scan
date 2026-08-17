@@ -10,8 +10,10 @@ import re
 from worker.parsers import (
     SEV_MEDIA,
     SEV_BAJA,
+    SEV_INFO,
     EST_CONFIRMADO,
     EST_POSITIVO,
+    EST_A_VALIDAR,
     FindingCandidate,
 )
 
@@ -31,17 +33,43 @@ def _script_output(root) -> str:
     return "\n".join(chunks)
 
 
+def _port443_state(root) -> str | None:
+    for port in root.iter("port"):
+        if port.get("portid") == "443":
+            st = port.find("state")
+            if st is not None:
+                return st.get("state")
+    return None
+
+
 def parse(path: str, ctx) -> list[FindingCandidate]:
     try:
         root = _parse(path).getroot()
     except Exception:
         return []
     text = _script_output(root)
+    sistema = f"{ctx.host}:443"
+
     if not text.strip():
+        # Los scripts no devolvieron datos: dejar constancia de que TLS no se
+        # pudo evaluar (p. ej. 443 filtrado/cerrado al momento del análisis).
+        estado_puerto = _port443_state(root)
+        if estado_puerto and estado_puerto != "open":
+            return [
+                FindingCandidate(
+                    titulo="TLS no evaluado (443 no respondió durante el análisis)",
+                    severidad=SEV_INFO,
+                    estado=EST_A_VALIDAR,
+                    herramienta_origen="nmap",
+                    sistema_afectado=sistema,
+                    evidencia=f"El puerto 443 respondió '{estado_puerto}'; ssl-enum-ciphers/ssl-cert no obtuvieron datos.",
+                    recomendacion="Revalidar TLS en fase de bajo nivel (posible filtrado/rate-limit durante el barrido).",
+                    dedup_key="tls:no-evaluado",
+                )
+            ]
         return []
 
     out: list[FindingCandidate] = []
-    sistema = f"{ctx.host}:443"
 
     presentes = [p for p in _OBSOLETOS if re.search(rf"{re.escape(p)}\s*:", text)]
     if presentes:
