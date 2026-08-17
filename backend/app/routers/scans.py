@@ -7,13 +7,28 @@ from app.celery_client import celery_client
 from app.db import get_db
 from app.models import (
     Authorization,
+    Finding,
     Project,
     Scan,
     ScanStage,
     ScanStatus,
     STAGE_PENDIENTE,
+    EST_POSITIVO,
+    EST_A_VALIDAR,
+    EST_FALSO_POSITIVO,
+    SEV_CRITICA,
+    SEV_ALTA,
+    SEV_MEDIA,
+    SEV_BAJA,
+    SEV_INFO,
 )
-from app.schemas import ScanCreate, ScanProgress, ScanRead
+from app.schemas import (
+    FindingsResponse,
+    ScanCreate,
+    ScanProgress,
+    ScanRead,
+    SeveritySummary,
+)
 
 router = APIRouter(prefix="/scans", tags=["scans"])
 
@@ -118,3 +133,67 @@ def scan_progress(scan_id: int, db: Session = Depends(get_db)):
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan no encontrado")
     return scan
+
+
+@router.post("/{scan_id}/analyze", status_code=status.HTTP_202_ACCEPTED)
+def analyze_scan(scan_id: int, db: Session = Depends(get_db)):
+    """Re-procesa el raw guardado y reconstruye los hallazgos (F3).
+
+    Útil para reprocesar sin re-escanear (p. ej. tras mejorar los parsers).
+    El scan tuvo que haber corrido (hay salidas crudas en el volumen).
+    """
+    scan = db.get(Scan, scan_id)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="Scan no encontrado")
+    if scan.status not in (ScanStatus.completado, ScanStatus.error):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El scan todavía no terminó; no hay salidas para analizar.",
+        )
+    celery_client.send_task("worker.tasks.consolidate_findings", args=[scan.id])
+    return {"scan_id": scan.id, "queued": True}
+
+
+_SEV_FIELD = {
+    SEV_CRITICA: "critica",
+    SEV_ALTA: "alta",
+    SEV_MEDIA: "media",
+    SEV_BAJA: "baja",
+    SEV_INFO: "info",
+}
+_SEV_ORDER = {SEV_CRITICA: 0, SEV_ALTA: 1, SEV_MEDIA: 2, SEV_BAJA: 3, SEV_INFO: 4}
+
+
+@router.get("/{scan_id}/findings", response_model=FindingsResponse)
+def scan_findings(scan_id: int, db: Session = Depends(get_db)):
+    """Hallazgos consolidados + resumen por severidad (B.11).
+
+    El resumen cuenta solo hallazgos reportables: los `positivo` (buena
+    postura) y `falso_positivo` se excluyen de la tabla de severidad.
+    """
+    scan = db.get(Scan, scan_id)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="Scan no encontrado")
+
+    findings = (
+        db.query(Finding).filter(Finding.scan_id == scan_id).all()
+    )
+    findings.sort(key=lambda f: (_SEV_ORDER.get(f.severidad, 9), f.id))
+
+    summary = SeveritySummary()
+    for f in findings:
+        if f.estado == EST_POSITIVO:
+            summary.positivos += 1
+            continue
+        if f.estado == EST_FALSO_POSITIVO:
+            continue
+        field = _SEV_FIELD.get(f.severidad)
+        if field:
+            setattr(summary, field, getattr(summary, field) + 1)
+        summary.total += 1
+        if f.estado == EST_A_VALIDAR:
+            summary.a_validar += 1
+
+    return FindingsResponse(
+        scan_id=scan_id, status=scan.status, summary=summary, findings=findings
+    )

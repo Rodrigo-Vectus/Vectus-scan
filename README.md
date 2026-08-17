@@ -15,8 +15,9 @@ Se construye **por fases**. Estado actual:
 | **F0** | Scaffolding + Docker + repo | ✅ hecha |
 | **F1** | UI base y selección de análisis (formulario + compuerta de autorización) | ✅ hecha |
 | **F2a** | Motor BIEC: ejecución por etapas, guardado de salidas crudas, estado y cronómetro (polling) | ✅ hecha |
-| **F2b** | WebSocket en vivo (fallback a polling) + semántica de estado de tool + afinado de timeouts/rate-limits | ✅ actual |
-| F3 | Parseo y consolidación de hallazgos | pendiente |
+| **F2b** | WebSocket en vivo (fallback a polling) + semántica de estado de tool + afinado de timeouts/rate-limits | ✅ hecha |
+| **F3a** | Parseo por herramienta + consolidación/dedup + API y vista de hallazgos | ✅ actual |
+| F3b | Correlación cruzada y control de falsos positivos (nikto vs curl, CVE por versión, CDN/origen) | pendiente |
 | F4 | Informe `.docx` sobre plantilla VECTUS | pendiente |
 | F5 | Historial y dashboard | pendiente |
 
@@ -180,6 +181,8 @@ En el frontend, la tarjeta muestra un indicador **verde** si el backend responde
 | `POST` | `/scans/{id}/launch` | **Re-verifica autorización**, crea las 5 etapas y encola el BIEC. 403 sin autorización · 409 si ya fue lanzado |
 | `GET` | `/scans/{id}/progress` | Estado de ejecución: etapas, tool runs y tiempos (polling) |
 | `WS` | `/ws/scans/{id}` | Push en vivo del progreso (F2b). Reenvía los eventos del canal Redis `scan:<id>`; el front cae a polling si el WS falla |
+| `POST` | `/scans/{id}/analyze` | Reprocesa el raw y reconstruye los hallazgos (F3). 409 si el scan no terminó |
+| `GET` | `/scans/{id}/findings` | Hallazgos consolidados + resumen por severidad (F3) |
 
 El **principio rector se aplica en el servidor**, no solo en el front: la validación de autorización vive en el schema de la API, así que aunque se saltee la UI, no se crea un scan sin permiso. En producción estos endpoints se consumen vía el proxy `/api` del frontend (ej. `POST /api/scans`).
 
@@ -210,6 +213,18 @@ El progreso se transmite en vivo por **WebSocket** (`/ws/scans/{id}`): el motor 
 **Semántica de estado de herramienta:** una tool se marca `completada` si terminó con éxito (exit 0) **o** si dejó salida cruda no vacía aunque su exit sea ≠ 0 (caso típico: nikto reporta hallazgos pero corta por `maxtime`). El `exit_code` real se guarda siempre para auditoría.
 
 **Afinado:** nuclei corre con `-timeout 10 -retries 1` además del rate-limit; los timeouts de subproceso y las estimaciones por etapa se calibraron con corridas reales.
+
+---
+
+## Parseo y consolidación (Fase 3a)
+
+Cuando un scan termina, el worker **parsea las salidas crudas** y las normaliza a hallazgos (`Finding`, modelo del anexo B.1). Un parser por herramienta (nmap servicios y TLS, whatweb, ffuf, nuclei, curl headers, nikto, dig/subfinder de contexto) traduce cada salida siguiendo las reglas de B.2–B.10, y luego se **consolidan y de-duplican** (B.11): un mismo hallazgo detectado por dos herramientas (p. ej. la versión del servidor por whatweb y por curl) queda como un solo `Finding` con sus `ocurrencias` y ambas herramientas de origen.
+
+Principio rector en el parseo: no se eleva severidad ni se inventan hallazgos. La **buena postura** se registra con `estado=positivo` (TLS moderno, namespace protegido por auth, cabeceras completas) y las hipótesis no confirmadas como `a_validar` (nunca como vulnerabilidad confirmada). El resumen por severidad excluye `positivo` y `falso_positivo`.
+
+La consolidación corre automática al terminar el scan y también se puede **reprocesar** sin re-escanear con `POST /scans/{id}/analyze` (útil al mejorar los parsers). Los parsers son funciones puras, cubiertas por tests con fixtures. El XML de nmap se parsea con `defusedxml`.
+
+La correlación cruzada más fina (contraste de cabeceras de nikto contra curl para descartar falsos positivos, CVE por versión, interpretación CDN/origen) queda para **F3b**.
 
 ---
 

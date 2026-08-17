@@ -136,3 +136,42 @@ class ScanProgress(BaseModel):
     started_at: datetime | None
     finished_at: datetime | None
     stages: list[ScanStageRead]
+
+
+# ─── Hallazgos (F3) ─────────────────────────────────────────────────
+
+class FindingRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    titulo: str
+    severidad: str
+    cvss: float | None
+    cvss_vector: str | None
+    sistema_afectado: str | None
+    evidencia: str | None
+    herramienta_origen: str
+    cve: str
+    cwe: str | None
+    recomendacion: str | None
+    mas_info: str | None
+    estado: str
+    ocurrencias: int
+
+
+class SeveritySummary(BaseModel):
+    critica: int = 0
+    alta: int = 0
+    media: int = 0
+    baja: int = 0
+    info: int = 0
+    total: int = 0
+    positivos: int = 0
+    a_validar: int = 0
+
+
+class FindingsResponse(BaseModel):
+    scan_id: int
+    status: ScanStatus
+    summary: SeveritySummary
+    findings: list[FindingRead]

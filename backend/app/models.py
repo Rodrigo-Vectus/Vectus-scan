@@ -5,6 +5,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     Enum as SAEnum,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -113,6 +114,10 @@ class Scan(Base):
         order_by="ScanStage.order",
         cascade="all, delete-orphan",
     )
+    findings: Mapped[list["Finding"]] = relationship(
+        back_populates="scan",
+        cascade="all, delete-orphan",
+    )
 
 
 # Estados de etapa y de herramienta (VARCHAR simple, no enum de PG).
@@ -178,3 +183,50 @@ class ToolRun(Base):
     )
 
     stage: Mapped["ScanStage"] = relationship(back_populates="tool_runs")
+
+
+# ─── Hallazgos (F3) ─────────────────────────────────────────────────
+# Severidad y estado como VARCHAR + constantes (sin enum de PG), igual que
+# los estados de etapa. Valores canónicos del anexo (B.1/B.2).
+
+SEV_CRITICA = "critica"
+SEV_ALTA = "alta"
+SEV_MEDIA = "media"
+SEV_BAJA = "baja"
+SEV_INFO = "info"
+SEVERITIES = [SEV_CRITICA, SEV_ALTA, SEV_MEDIA, SEV_BAJA, SEV_INFO]
+
+EST_CONFIRMADO = "confirmado"
+EST_A_VALIDAR = "a_validar"
+EST_FALSO_POSITIVO = "falso_positivo"
+EST_POSITIVO = "positivo"  # buena postura
+
+
+class Finding(Base):
+    """Hallazgo consolidado y normalizado (B.1). El worker lo escribe a partir
+    del raw; el backend solo lo lee para la API/informe."""
+
+    __tablename__ = "findings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    scan_id: Mapped[int] = mapped_column(
+        ForeignKey("scans.id"), nullable=False, index=True
+    )
+
+    titulo: Mapped[str] = mapped_column(String(300), nullable=False)
+    severidad: Mapped[str] = mapped_column(String(20), nullable=False)
+    cvss: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cvss_vector: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    sistema_afectado: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    evidencia: Mapped[str | None] = mapped_column(Text, nullable=True)
+    herramienta_origen: Mapped[str] = mapped_column(String(120), nullable=False)
+    cve: Mapped[str] = mapped_column(String(200), nullable=False, default="No aplica")
+    cwe: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    recomendacion: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mas_info: Mapped[str | None] = mapped_column(Text, nullable=True)
+    estado: Mapped[str] = mapped_column(String(20), nullable=False)
+    ocurrencias: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    # Clave semántica para de-duplicar entre herramientas (B.11).
+    dedup_key: Mapped[str] = mapped_column(String(300), nullable=False)
+
+    scan: Mapped["Scan"] = relationship(back_populates="findings")

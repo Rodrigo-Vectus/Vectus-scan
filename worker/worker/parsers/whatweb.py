@@ -1,0 +1,96 @@
+"""whatweb --log-json → tecnologías y fugas (B.4).
+
+- HTTPServer con versión → divulgación de versión (baja). dedup_key común con
+  la cabecera Server de curl para consolidar (B.11).
+- Librerías JS con versión → info (correlación de CVE en F3b).
+- Email[...] → divulgación de correos; se filtran placeholders.
+"""
+import json
+import re
+
+from worker.parsers import SEV_BAJA, SEV_INFO, EST_CONFIRMADO, FindingCandidate
+
+_PLACEHOLDER_RE = re.compile(
+    r"(tu@|you@|your@|example@|user@|email@|nombre@|test@|@example\.|@email\.|@dominio\.|@domain\.)",
+    re.IGNORECASE,
+)
+_LIB_KEYS = {"jQuery", "Bootstrap", "React", "Vue.js", "AngularJS", "Modernizr", "Lodash"}
+
+
+def _server_key(value: str) -> str:
+    # "Apache/2.4.7 (Ubuntu)" → "apache/2.4.7" (para de-dup con curl)
+    token = (value or "").split()[0] if value else ""
+    return f"server-version:{token.lower()}" if token else "server-version"
+
+
+def _load(path: str):
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            data = json.load(f)
+    except Exception:
+        return []
+    return data if isinstance(data, list) else [data]
+
+
+def parse(path: str, ctx) -> list[FindingCandidate]:
+    out: list[FindingCandidate] = []
+    for entry in _load(path):
+        plugins = entry.get("plugins") or {}
+        target = entry.get("target") or ctx.target_url
+
+        server = plugins.get("HTTPServer", {})
+        server_vals = server.get("string") or server.get("version") or []
+        for val in server_vals:
+            if re.search(r"\d", str(val)):  # tiene número de versión
+                out.append(
+                    FindingCandidate(
+                        titulo="Divulgación de versión del servidor web",
+                        severidad=SEV_BAJA,
+                        estado=EST_CONFIRMADO,
+                        herramienta_origen="whatweb",
+                        sistema_afectado=target,
+                        evidencia=f"HTTPServer: {val}",
+                        cwe="CWE-200",
+                        recomendacion="Ocultar/normalizar la cabecera Server para no revelar versión exacta.",
+                        dedup_key=_server_key(str(val)),
+                    )
+                )
+
+        for lib in _LIB_KEYS:
+            info = plugins.get(lib)
+            if not info:
+                continue
+            versions = info.get("version") or []
+            ver = ", ".join(str(v) for v in versions) if versions else "sin versión"
+            out.append(
+                FindingCandidate(
+                    titulo=f"Librería front-end detectada: {lib} ({ver})",
+                    severidad=SEV_INFO,
+                    estado=EST_CONFIRMADO,
+                    herramienta_origen="whatweb",
+                    sistema_afectado=target,
+                    evidencia=f"{lib}: {ver}",
+                    recomendacion="Verificar que la versión no tenga CVE conocidos (validación en fase de bajo nivel).",
+                    dedup_key=f"lib:{lib.lower()}",
+                )
+            )
+
+        email = plugins.get("Email", {})
+        emails = email.get("string") or []
+        reales = [e for e in emails if not _PLACEHOLDER_RE.search(str(e))]
+        if reales:
+            out.append(
+                FindingCandidate(
+                    titulo="Divulgación de direcciones de correo",
+                    severidad=SEV_BAJA,
+                    estado=EST_CONFIRMADO,
+                    herramienta_origen="whatweb",
+                    sistema_afectado=target,
+                    evidencia="Correos servidos: " + ", ".join(sorted(set(map(str, reales)))),
+                    cwe="CWE-200",
+                    recomendacion="Evitar exponer correos en el HTML; usar formularios o ofuscación.",
+                    dedup_key="email-disclosure",
+                    ocurrencias=len(set(reales)),
+                )
+            )
+    return out

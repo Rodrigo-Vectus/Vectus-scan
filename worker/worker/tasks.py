@@ -22,3 +22,12 @@ def run_biec_task(scan_id: int):
 
     run_biec(scan_id)
     return {"scan_id": scan_id, "done": True}
+
+
+@celery_app.task(name="worker.tasks.consolidate_findings")
+def consolidate_findings_task(scan_id: int):
+    """Reprocesa el raw guardado y reconstruye los hallazgos (F3)."""
+    from worker.consolidate import run
+
+    total = run(scan_id)
+    return {"scan_id": scan_id, "findings": total}

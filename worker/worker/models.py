@@ -10,7 +10,7 @@ y acepta el texto de la etiqueta sin problema.
 """
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from worker.db import Base
@@ -61,3 +61,24 @@ class ToolRun(Base):
     error: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Finding(Base):
+    __tablename__ = "findings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    scan_id: Mapped[int] = mapped_column(ForeignKey("scans.id"))
+    titulo: Mapped[str] = mapped_column(String(300))
+    severidad: Mapped[str] = mapped_column(String(20))
+    cvss: Mapped[float | None] = mapped_column(Float)
+    cvss_vector: Mapped[str | None] = mapped_column(String(120))
+    sistema_afectado: Mapped[str | None] = mapped_column(String(500))
+    evidencia: Mapped[str | None] = mapped_column(Text)
+    herramienta_origen: Mapped[str] = mapped_column(String(120))
+    cve: Mapped[str] = mapped_column(String(200))
+    cwe: Mapped[str | None] = mapped_column(String(120))
+    recomendacion: Mapped[str | None] = mapped_column(Text)
+    mas_info: Mapped[str | None] = mapped_column(Text)
+    estado: Mapped[str] = mapped_column(String(20))
+    ocurrencias: Mapped[int] = mapped_column(Integer)
+    dedup_key: Mapped[str] = mapped_column(String(300))

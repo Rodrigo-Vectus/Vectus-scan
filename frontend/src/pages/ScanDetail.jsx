@@ -3,6 +3,8 @@ import { useParams } from "react-router-dom";
 import {
   getScan,
   getProgress,
+  getFindings,
+  analyzeScan,
   launchScan,
   openProgressSocket,
   messagesFromError,
@@ -117,6 +119,161 @@ function Progress({ prog }) {
           <StageRow key={s.id} stage={s} />
         ))}
       </ul>
+    </div>
+  );
+}
+
+const SEV_LABEL = {
+  critica: "Crítica",
+  alta: "Alta",
+  media: "Media",
+  baja: "Baja",
+  info: "Info",
+};
+const SEV_KEYS = ["critica", "alta", "media", "baja", "info"];
+
+function Findings({ scanId }) {
+  const [data, setData] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = () =>
+    getFindings(scanId)
+      .then(setData)
+      .catch(() => {});
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanId]);
+
+  const reanalyze = async () => {
+    setBusy(true);
+    try {
+      await analyzeScan(scanId);
+      // el reproceso corre en el worker; recargamos unas veces
+      let n = 0;
+      const iv = setInterval(async () => {
+        await load();
+        if (++n >= 4) clearInterval(iv);
+      }, 1500);
+    } catch {
+      /* noop */
+    } finally {
+      setTimeout(() => setBusy(false), 1500);
+    }
+  };
+
+  if (!data) return null;
+  const { summary, findings } = data;
+  const reportables = findings.filter(
+    (f) => f.estado !== "positivo" && f.estado !== "falso_positivo"
+  );
+  const positivos = findings.filter((f) => f.estado === "positivo");
+
+  return (
+    <div className="findings-wrap">
+      <div className="section-label">
+        <span className="section-label-text">hallazgos</span>
+        <span className="section-rule" />
+        <button className="btn btn-ghost btn-sm" disabled={busy} onClick={reanalyze}>
+          {busy ? "reprocesando…" : "re-analizar"}
+        </button>
+      </div>
+
+      <div className="sev-summary">
+        {SEV_KEYS.map((k) => (
+          <div key={k} className={`sev-cell sev-${k}`}>
+            <span className="sev-count">{summary[k]}</span>
+            <span className="sev-name">{SEV_LABEL[k]}</span>
+          </div>
+        ))}
+        <div className="sev-cell sev-total">
+          <span className="sev-count">{summary.total}</span>
+          <span className="sev-name">Total</span>
+        </div>
+      </div>
+      <p className="findings-meta mono">
+        {summary.a_validar} a validar · {summary.positivos} buena postura
+      </p>
+
+      {reportables.length === 0 && (
+        <p className="muted">Sin hallazgos reportables.</p>
+      )}
+
+      <div className="finding-list">
+        {reportables.map((f) => (
+          <details key={f.id} className="finding">
+            <summary>
+              <span className={`badge badge-sev sev-${f.severidad}`}>
+                {SEV_LABEL[f.severidad] || f.severidad}
+              </span>
+              <span className="finding-title">{f.titulo}</span>
+              {f.estado === "a_validar" && (
+                <span className="badge badge-validar">a validar</span>
+              )}
+              <span className="finding-tool mono">{f.herramienta_origen}</span>
+            </summary>
+            <dl className="finding-detail">
+              {f.sistema_afectado && (
+                <>
+                  <dt>Sistema</dt>
+                  <dd className="mono">{f.sistema_afectado}</dd>
+                </>
+              )}
+              {f.cve && f.cve !== "No aplica" && (
+                <>
+                  <dt>CVE</dt>
+                  <dd className="mono">{f.cve}</dd>
+                </>
+              )}
+              {f.cwe && (
+                <>
+                  <dt>CWE</dt>
+                  <dd className="mono">{f.cwe}</dd>
+                </>
+              )}
+              {f.evidencia && (
+                <>
+                  <dt>Evidencia</dt>
+                  <dd>{f.evidencia}</dd>
+                </>
+              )}
+              {f.recomendacion && (
+                <>
+                  <dt>Recomendación</dt>
+                  <dd>{f.recomendacion}</dd>
+                </>
+              )}
+              {f.mas_info && (
+                <>
+                  <dt>Más info</dt>
+                  <dd className="mono">{f.mas_info}</dd>
+                </>
+              )}
+              {f.ocurrencias > 1 && (
+                <>
+                  <dt>Ocurrencias</dt>
+                  <dd>{f.ocurrencias}</dd>
+                </>
+              )}
+            </dl>
+          </details>
+        ))}
+      </div>
+
+      {positivos.length > 0 && (
+        <div className="positivos">
+          <p className="positivos-title">Buena postura ({positivos.length})</p>
+          <ul>
+            {positivos.map((f) => (
+              <li key={f.id}>
+                <span className="ok-check">✓</span> {f.titulo}
+                <span className="finding-tool mono"> · {f.herramienta_origen}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -294,6 +451,10 @@ export default function ScanDetail() {
           </div>
           <Progress prog={prog} />
         </div>
+      )}
+
+      {prog && (prog.status === "completado" || prog.status === "error") && (
+        <Findings scanId={id} />
       )}
     </div>
   );

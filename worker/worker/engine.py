@@ -90,6 +90,16 @@ def run_biec(scan_id: int, runner=real_runner, publish=_publish, data_root=DATA_
         for stage in stages:
             _run_stage(db, scan_id, stage, tgt, runner, publish, data_root)
 
+        # F3: consolidar hallazgos a partir del raw recién guardado. Si falla,
+        # no invalida el scan (se puede reprocesar con POST /scans/{id}/analyze).
+        try:
+            from worker.consolidate import run as consolidate_run
+
+            consolidate_run(scan_id, data_root=data_root)
+            publish(scan_id, {"type": "findings", "status": "listo"})
+        except Exception as e:
+            publish(scan_id, {"type": "findings", "status": "error", "reason": str(e)})
+
         scan.status = "completado"
         scan.finished_at = _now()
         db.commit()
