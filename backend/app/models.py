@@ -77,6 +77,7 @@ class Scan(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     target: Mapped[str] = mapped_column(String(500), nullable=False)
+    cliente: Mapped[str | None] = mapped_column(String(200), nullable=True)
     analysis_type: Mapped[AnalysisType] = mapped_column(
         SAEnum(AnalysisType, name="analysis_type"), nullable=False
     )

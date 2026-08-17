@@ -8,7 +8,7 @@
 import json
 import re
 
-from worker.parsers import SEV_BAJA, SEV_INFO, EST_CONFIRMADO, FindingCandidate
+from worker.parsers import SEV_BAJA, SEV_INFO, EST_CONFIRMADO, FindingCandidate, version_review
 
 _PLACEHOLDER_RE = re.compile(
     r"(tu@|you@|your@|example@|user@|email@|nombre@|test@|@example\.|@email\.|@dominio\.|@domain\.)",
@@ -55,6 +55,10 @@ def parse(path: str, ctx) -> list[FindingCandidate]:
                         dedup_key=_server_key(str(val)),
                     )
                 )
+                prod, _, rest = str(val).partition("/")
+                ver = rest.split()[0] if rest.strip() else ""
+                if ver:
+                    out.append(version_review(prod, ver, "whatweb", target))
 
         for lib in _LIB_KEYS:
             info = plugins.get(lib)

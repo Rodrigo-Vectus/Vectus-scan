@@ -45,6 +45,7 @@ export const getProgress = (id) => req(`/scans/${id}/progress`);
 export const getFindings = (id) => req(`/scans/${id}/findings`);
 export const analyzeScan = (id) =>
   req(`/scans/${id}/analyze`, { method: "POST" });
+export const reportUrl = (id) => `${BASE}/scans/${id}/report.docx`;
 
 // WebSocket de progreso en vivo (F2b). Cada mensaje es un "aviso" de cambio;
 // el llamador reacciona volviendo a pedir getProgress. Devuelve el socket

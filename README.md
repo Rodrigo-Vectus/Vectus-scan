@@ -16,9 +16,9 @@ Se construye **por fases**. Estado actual:
 | **F1** | UI base y selección de análisis (formulario + compuerta de autorización) | ✅ hecha |
 | **F2a** | Motor BIEC: ejecución por etapas, guardado de salidas crudas, estado y cronómetro (polling) | ✅ hecha |
 | **F2b** | WebSocket en vivo (fallback a polling) + semántica de estado de tool + afinado de timeouts/rate-limits | ✅ hecha |
-| **F3a** | Parseo por herramienta + consolidación/dedup + API y vista de hallazgos | ✅ actual |
-| F3b | Correlación cruzada y control de falsos positivos (nikto vs curl, CVE por versión, CDN/origen) | pendiente |
-| F4 | Informe `.docx` sobre plantilla VECTUS | pendiente |
+| **F3a** | Parseo por herramienta + consolidación/dedup + API y vista de hallazgos | ✅ hecha |
+| **F3b** | Correlación cruzada y control de falsos positivos (nikto vs curl, CVE por versión, CDN/origen) | ✅ hecha |
+| **F4** | Informe `.docx` sobre plantilla VECTUS, a pedido (botón) | ✅ actual |
 | F5 | Historial y dashboard | pendiente |
 
 De los tres tipos de análisis, en esta etapa solo se implementa el **BIEC** (Barrido Inicial de Exposición Crítica). Bajo Nivel y Alto Nivel quedan como placeholders.
@@ -183,6 +183,7 @@ En el frontend, la tarjeta muestra un indicador **verde** si el backend responde
 | `WS` | `/ws/scans/{id}` | Push en vivo del progreso (F2b). Reenvía los eventos del canal Redis `scan:<id>`; el front cae a polling si el WS falla |
 | `POST` | `/scans/{id}/analyze` | Reprocesa el raw y reconstruye los hallazgos (F3). 409 si el scan no terminó |
 | `GET` | `/scans/{id}/findings` | Hallazgos consolidados + resumen por severidad (F3) |
+| `GET` | `/scans/{id}/report.docx` | Genera y descarga el informe .docx a pedido (F4). 409 si el scan no terminó |
 
 El **principio rector se aplica en el servidor**, no solo en el front: la validación de autorización vive en el schema de la API, así que aunque se saltee la UI, no se crea un scan sin permiso. En producción estos endpoints se consumen vía el proxy `/api` del frontend (ej. `POST /api/scans`).
 
@@ -224,7 +225,27 @@ Principio rector en el parseo: no se eleva severidad ni se inventan hallazgos. L
 
 La consolidación corre automática al terminar el scan y también se puede **reprocesar** sin re-escanear con `POST /scans/{id}/analyze` (útil al mejorar los parsers). Los parsers son funciones puras, cubiertas por tests con fixtures. El XML de nmap se parsea con `defusedxml`.
 
-La correlación cruzada más fina (contraste de cabeceras de nikto contra curl para descartar falsos positivos, CVE por versión, interpretación CDN/origen) queda para **F3b**.
+La correlación cruzada más fina se implementa en **F3b** (siguiente sección).
+
+---
+
+## Correlación y falsos positivos (Fase 3b)
+
+Sobre los candidatos ya parseados, antes de consolidar, se aplican reglas que cruzan la salida de varias herramientas (Parte B del anexo):
+
+- **Contraste nikto ↔ curl (B.10):** nikto reporta "cabecera X ausente" probando rutas 404 aleatorias. Si en la home (cabeceras reales de curl) esa cabecera **sí** está presente, el ítem se marca `falso_positivo` (queda registrado, no suma a la tabla). Solo se aplica cuando hay cabeceras reales de curl para contrastar.
+- **CVE por versión (B.8):** cada banner con versión (nmap, whatweb, curl) genera un ítem `a_validar` "revisar CVEs de la rama", con la **salvedad obligatoria**: los paquetes de distribución backportean parches manteniendo el número de versión, así que el banner por sí solo no confirma vulnerabilidad. Se de-duplica por producto/versión entre herramientas.
+- **CDN vs origen (B.5):** a partir de la IP y el PTR del XML de nmap se anota si el barrido pegó al **origen real** (hosting/VPS) o a un **edge/CDN** (en cuyo caso se evalúa el edge, no el origen). Cambia la lectura de todo el resultado.
+
+---
+
+## Informe .docx (Fase 4)
+
+El informe se genera **a pedido** con el botón *exportar informe (.docx)* de la vista de hallazgos (nunca automático, no se guarda). El backend edita la **plantilla corporativa** de VECTUS con python-docx (no la recrea): conserva portada, logos, estilos y footers, y rellena cliente/alcance, la **tabla resumen de severidad**, un **bloque por vulnerabilidad** (clonado de la plantilla: severidad, CVSS, ocurrencias, descripción, sistema afectado, CVE, recomendaciones, más info) y la **conclusión** con los conteos reales.
+
+Regla de oro (B.12): a la tabla de vulnerabilidades entran solo hallazgos **confirmados** de severidad crítica/alta/media/baja. Los `info` (contexto), la buena postura (`positivo`) y las áreas a validar (`a_validar`) no son vulnerabilidades y no se cuentan ahí. Si no hay vulnerabilidades confirmadas, el informe lo dice honestamente.
+
+El nombre del **cliente** se toma del campo del formulario de creación del scan (`scans.cliente`), con respaldo al cliente/nombre del proyecto. La plantilla vive embebida en `backend/app/report_template/`.
 
 ---
 

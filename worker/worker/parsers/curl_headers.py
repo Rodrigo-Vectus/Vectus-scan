@@ -10,6 +10,7 @@ from worker.parsers import (
     EST_CONFIRMADO,
     EST_POSITIVO,
     FindingCandidate,
+    version_review,
 )
 
 # (nombre-header, título, cwe, recomendación)
@@ -129,6 +130,10 @@ def parse(path: str, ctx) -> list[FindingCandidate]:
                 dedup_key=f"server-version:{server.split()[0].lower()}",
             )
         )
+        prod, _, rest = server.partition("/")
+        ver = rest.split()[0] if rest.strip() else ""
+        if ver:
+            out.append(version_review(prod, ver, "curl", sistema))
 
     for cookie in cookies:
         low = cookie.lower()

@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.biec import ESTIMATED_TOTAL_SECONDS, STAGES
+from app import report as report_mod
 from app.celery_client import celery_client
 from app.db import get_db
 from app.models import (
@@ -54,6 +55,7 @@ def create_scan(payload: ScanCreate, db: Session = Depends(get_db)):
 
     scan = Scan(
         target=payload.target,
+        cliente=payload.client,
         analysis_type=payload.analysis_type,
         project_id=project.id,
         authorization_id=authorization.id,
@@ -196,4 +198,36 @@ def scan_findings(scan_id: int, db: Session = Depends(get_db)):
 
     return FindingsResponse(
         scan_id=scan_id, status=scan.status, summary=summary, findings=findings
+    )
+
+
+_DOCX_MIME = (
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+)
+
+
+@router.get("/{scan_id}/report.docx")
+def scan_report(scan_id: int, db: Session = Depends(get_db)):
+    """Genera el informe .docx a pedido (botón) y lo devuelve para descargar.
+
+    No se guarda ni se dispara solo. Solo disponible cuando el scan terminó.
+    """
+    scan = db.get(Scan, scan_id)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="Scan no encontrado")
+    if scan.status not in (ScanStatus.completado, ScanStatus.error):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El scan todavía no terminó; no hay informe para generar.",
+        )
+    findings = db.query(Finding).filter(Finding.scan_id == scan_id).all()
+    data = report_mod.generate_for_scan(scan, findings)
+
+    host = (scan.target or "scan").replace("https://", "").replace("http://", "")
+    host = host.split("/")[0].replace(":", "_") or "scan"
+    filename = f"informe-BIEC-{host}-{scan_id}.docx"
+    return Response(
+        content=data,
+        media_type=_DOCX_MIME,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

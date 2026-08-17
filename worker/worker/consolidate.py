@@ -8,7 +8,7 @@ import os
 
 from worker.db import SessionLocal
 from worker.models import Finding, Scan
-from worker.parsers import SEV_ORDER, FindingCandidate, Ctx
+from worker.parsers import SEV_ORDER, SEV_INFO, EST_FALSO_POSITIVO, FindingCandidate, Ctx
 from worker.parsers import (
     context,
     curl_headers,
@@ -55,6 +55,48 @@ def _collect(scan_dir: str, ctx: Ctx) -> list[FindingCandidate]:
     return found
 
 
+def _real_headers(scan_dir: str) -> dict:
+    """Cabeceras reales de la respuesta de curl (dict lower→valor), o {}.
+
+    Sirve para contrastar hallazgos de otras herramientas contra lo que
+    efectivamente devolvió el servidor en una ruta real (B.10).
+    """
+    for root, _dirs, files in os.walk(scan_dir):
+        if "headers.txt" in files:
+            headers, _cookies = curl_headers._parse_headers(
+                os.path.join(root, "headers.txt")
+            )
+            if headers:
+                return headers
+    return {}
+
+
+def _correlate(cands: list[FindingCandidate], scan_dir: str) -> list[FindingCandidate]:
+    """Reglas cruzadas entre herramientas (F3b). Muta candidatos in place.
+
+    B.10 — Contraste nikto ↔ curl: nikto reporta "header X ausente" probando
+    rutas 404 aleatorias; si en la home (curl) ese header SÍ está presente, es
+    un falso positivo de nikto. Se marca `falso_positivo` (queda registrado,
+    no suma a la tabla). Solo se aplica si tenemos las cabeceras reales de curl.
+    """
+    real = _real_headers(scan_dir)
+    if real:
+        for c in cands:
+            if c.herramienta_origen != "nikto":
+                continue
+            if not c.dedup_key.startswith("header-missing:"):
+                continue
+            name = c.dedup_key.split(":", 1)[1]
+            if name in real:
+                c.estado = EST_FALSO_POSITIVO
+                c.severidad = SEV_INFO
+                c.evidencia = (c.evidencia or "") + (
+                    " · Contraste con curl: el header está presente en la home "
+                    "→ falso positivo de nikto (reportado sobre una ruta 404)."
+                )
+    return cands
+
+
 def _merge(cands: list[FindingCandidate]) -> list[FindingCandidate]:
     """De-duplica por clave semántica (B.11)."""
     groups: dict[str, list[FindingCandidate]] = {}
@@ -91,6 +133,7 @@ def run(scan_id: int, data_root: str = DATA_ROOT) -> int:
 
         scan_dir = os.path.join(data_root, str(scan_id))
         cands = _collect(scan_dir, ctx) if os.path.isdir(scan_dir) else []
+        cands = _correlate(cands, scan_dir)
         merged = _merge(cands)
 
         # Idempotente: borrar findings previos del scan y reescribir.

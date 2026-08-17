@@ -519,10 +519,14 @@ a { color: inherit; text-decoration: none; }
 /* ── Hallazgos (F3) ── */
 .findings-wrap { margin-top: 34px; }
 .section-label .btn-sm {
-  margin-left: auto;
   padding: 4px 10px;
   font-size: 11px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
 }
+a.btn-sm { color: var(--muted); }
 .btn-ghost {
   background: transparent;
   border: 1px solid var(--border-strong);

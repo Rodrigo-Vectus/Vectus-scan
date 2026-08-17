@@ -66,6 +66,36 @@ def nuclei_severity(raw: str) -> str:
     }.get((raw or "").strip().lower(), SEV_INFO)
 
 
+def version_review(producto: str, version: str, herramienta: str, sistema: str):
+    """Candidato `a_validar` de correlación CVE-por-versión (B.8).
+
+    Salvedad obligatoria del anexo: los paquetes de distro backportean parches
+    manteniendo el número de versión, así que el banner NO confirma
+    vulnerabilidad. Se registra como área a validar en fase de bajo nivel.
+    Se de-duplica por producto/versión para no repetir entre herramientas.
+    """
+    prod = (producto or "").strip()
+    ver = (version or "").strip()
+    label = (prod + " " + ver).strip()
+    key_prod = prod.lower().split()[0] if prod else "servicio"
+    return FindingCandidate(
+        titulo=f"Revisar CVEs de la versión: {label}",
+        severidad=SEV_INFO,
+        estado=EST_A_VALIDAR,
+        herramienta_origen=herramienta,
+        sistema_afectado=sistema,
+        evidencia=f"Banner de versión detectado: {label}.",
+        cwe=None,
+        recomendacion=(
+            "Revisar CVEs de la rama y validar el nivel de parcheo en fase de bajo "
+            "nivel. Nota: los paquetes de distribución suelen backportear parches "
+            "manteniendo el número de versión, por lo que el banner por sí solo NO "
+            "confirma que el servicio sea vulnerable."
+        ),
+        dedup_key=f"cve-version:{key_prod}:{ver}",
+    )
+
+
 def cvss_to_severity(score: float) -> str:
     """Rangos CVSS → severidad (B.2)."""
     if score >= 9.0:

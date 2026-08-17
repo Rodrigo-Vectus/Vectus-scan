@@ -5,6 +5,7 @@ import {
   getProgress,
   getFindings,
   analyzeScan,
+  reportUrl,
   launchScan,
   openProgressSocket,
   messagesFromError,
@@ -175,6 +176,9 @@ function Findings({ scanId }) {
       <div className="section-label">
         <span className="section-label-text">hallazgos</span>
         <span className="section-rule" />
+        <a className="btn btn-ghost btn-sm" href={reportUrl(scanId)}>
+          exportar informe (.docx)
+        </a>
         <button className="btn btn-ghost btn-sm" disabled={busy} onClick={reanalyze}>
           {busy ? "reprocesando…" : "re-analizar"}
         </button>
