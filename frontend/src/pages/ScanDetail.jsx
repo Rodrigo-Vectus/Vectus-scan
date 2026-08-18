@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   getScan,
@@ -13,7 +13,10 @@ import {
 
 function fmtDate(iso) {
   try {
-    return new Date(iso).toLocaleString();
+    return new Date(iso).toLocaleString("es-AR", {
+      day: "2-digit", month: "2-digit", year: "2-digit",
+      hour: "2-digit", minute: "2-digit",
+    });
   } catch {
     return iso;
   }
@@ -28,6 +31,9 @@ function fmtDur(sec) {
 
 const RUNNING = new Set(["en_cola", "corriendo"]);
 
+const SEV_LABEL = { critica: "Crítica", alta: "Alta", media: "Media", baja: "Baja", info: "Info" };
+const SEV_KEYS = ["critica", "alta", "media", "baja", "info"];
+
 function StageRow({ stage }) {
   return (
     <li className="stage-row">
@@ -40,9 +46,7 @@ function StageRow({ stage }) {
         {stage.tool_runs.length > 0 && (
           <div className="tool-chips">
             {stage.tool_runs.map((t) => (
-              <span key={t.id} className={`chip chip-${t.status}`}>
-                {t.tool}
-              </span>
+              <span key={t.id} className={`chip chip-${t.status}`}>{t.tool}</span>
             ))}
           </div>
         )}
@@ -67,17 +71,12 @@ function Timer({ prog }) {
     label = "estimado";
     value = fmtDur(estimated_seconds);
   } else if (running) {
-    const elapsed = started_at
-      ? (Date.now() - new Date(started_at).getTime()) / 1000
-      : 0;
+    const elapsed = started_at ? (Date.now() - new Date(started_at).getTime()) / 1000 : 0;
     label = "transcurrido";
     value = `${fmtDur(elapsed)} / est. ${fmtDur(estimated_seconds)}`;
   } else {
-    const total =
-      started_at && finished_at
-        ? (new Date(finished_at).getTime() - new Date(started_at).getTime()) /
-          1000
-        : null;
+    const total = started_at && finished_at
+      ? (new Date(finished_at).getTime() - new Date(started_at).getTime()) / 1000 : null;
     label = "duración";
     value = fmtDur(total);
   }
@@ -99,73 +98,39 @@ function Progress({ prog }) {
   return (
     <div className="exec">
       <div className="exec-top">
-        <span className={`badge badge-lg badge-${prog.status}`}>
-          {prog.status}
-        </span>
+        <span className={`badge badge-lg badge-${prog.status}`}>{prog.status}</span>
         <Timer prog={prog} />
       </div>
-
       <div className="progress-track" aria-label={`progreso ${pct}%`}>
-        <div
-          className={`progress-fill ${errored ? "has-error" : ""}`}
-          style={{ width: `${pct}%` }}
-        />
+        <div className={`progress-fill ${errored ? "has-error" : ""}`} style={{ width: `${pct}%` }} />
       </div>
-      <p className="progress-meta mono">
-        {done}/{total} etapas
-      </p>
-
+      <p className="progress-meta mono">{done}/{total} etapas</p>
       <ul className="stage-list">
-        {prog.stages.map((s) => (
-          <StageRow key={s.id} stage={s} />
-        ))}
+        {prog.stages.map((s) => <StageRow key={s.id} stage={s} />)}
       </ul>
     </div>
   );
 }
 
-const SEV_LABEL = {
-  critica: "Crítica",
-  alta: "Alta",
-  media: "Media",
-  baja: "Baja",
-  info: "Info",
-};
-const SEV_KEYS = ["critica", "alta", "media", "baja", "info"];
+function SevHero({ summary }) {
+  return (
+    <div className="sev-hero">
+      {SEV_KEYS.map((k) => (
+        <div key={k} className={`sev-tile tile-${k}`}>
+          <span className="sev-tile-num mono">{summary[k]}</span>
+          <span className="sev-tile-lbl">{SEV_LABEL[k]}</span>
+        </div>
+      ))}
+      <div className="sev-tile tile-total">
+        <span className="sev-tile-num mono">{summary.total}</span>
+        <span className="sev-tile-lbl">Total</span>
+      </div>
+    </div>
+  );
+}
 
-function Findings({ scanId }) {
-  const [data, setData] = useState(null);
-  const [busy, setBusy] = useState(false);
-
-  const load = () =>
-    getFindings(scanId)
-      .then(setData)
-      .catch(() => {});
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scanId]);
-
-  const reanalyze = async () => {
-    setBusy(true);
-    try {
-      await analyzeScan(scanId);
-      // el reproceso corre en el worker; recargamos unas veces
-      let n = 0;
-      const iv = setInterval(async () => {
-        await load();
-        if (++n >= 4) clearInterval(iv);
-      }, 1500);
-    } catch {
-      /* noop */
-    } finally {
-      setTimeout(() => setBusy(false), 1500);
-    }
-  };
-
-  if (!data) return null;
-  const { summary, findings } = data;
+function FindingsList({ data }) {
+  const { findings } = data;
   const reportables = findings.filter(
     (f) => f.estado !== "positivo" && f.estado !== "falso_positivo"
   );
@@ -176,33 +141,9 @@ function Findings({ scanId }) {
       <div className="section-label">
         <span className="section-label-text">hallazgos</span>
         <span className="section-rule" />
-        <a className="btn btn-ghost btn-sm" href={reportUrl(scanId)}>
-          exportar informe (.docx)
-        </a>
-        <button className="btn btn-ghost btn-sm" disabled={busy} onClick={reanalyze}>
-          {busy ? "reprocesando…" : "re-analizar"}
-        </button>
       </div>
 
-      <div className="sev-summary">
-        {SEV_KEYS.map((k) => (
-          <div key={k} className={`sev-cell sev-${k}`}>
-            <span className="sev-count">{summary[k]}</span>
-            <span className="sev-name">{SEV_LABEL[k]}</span>
-          </div>
-        ))}
-        <div className="sev-cell sev-total">
-          <span className="sev-count">{summary.total}</span>
-          <span className="sev-name">Total</span>
-        </div>
-      </div>
-      <p className="findings-meta mono">
-        {summary.a_validar} a validar · {summary.positivos} buena postura
-      </p>
-
-      {reportables.length === 0 && (
-        <p className="muted">Sin hallazgos reportables.</p>
-      )}
+      {reportables.length === 0 && <p className="muted">Sin hallazgos reportables.</p>}
 
       <div className="finding-list">
         {reportables.map((f) => (
@@ -212,54 +153,17 @@ function Findings({ scanId }) {
                 {SEV_LABEL[f.severidad] || f.severidad}
               </span>
               <span className="finding-title">{f.titulo}</span>
-              {f.estado === "a_validar" && (
-                <span className="badge badge-validar">a validar</span>
-              )}
+              {f.estado === "a_validar" && <span className="badge badge-validar">a validar</span>}
               <span className="finding-tool mono">{f.herramienta_origen}</span>
             </summary>
             <dl className="finding-detail">
-              {f.sistema_afectado && (
-                <>
-                  <dt>Sistema</dt>
-                  <dd className="mono">{f.sistema_afectado}</dd>
-                </>
-              )}
-              {f.cve && f.cve !== "No aplica" && (
-                <>
-                  <dt>CVE</dt>
-                  <dd className="mono">{f.cve}</dd>
-                </>
-              )}
-              {f.cwe && (
-                <>
-                  <dt>CWE</dt>
-                  <dd className="mono">{f.cwe}</dd>
-                </>
-              )}
-              {f.evidencia && (
-                <>
-                  <dt>Evidencia</dt>
-                  <dd>{f.evidencia}</dd>
-                </>
-              )}
-              {f.recomendacion && (
-                <>
-                  <dt>Recomendación</dt>
-                  <dd>{f.recomendacion}</dd>
-                </>
-              )}
-              {f.mas_info && (
-                <>
-                  <dt>Más info</dt>
-                  <dd className="mono">{f.mas_info}</dd>
-                </>
-              )}
-              {f.ocurrencias > 1 && (
-                <>
-                  <dt>Ocurrencias</dt>
-                  <dd>{f.ocurrencias}</dd>
-                </>
-              )}
+              {f.sistema_afectado && (<><dt>Sistema</dt><dd className="mono">{f.sistema_afectado}</dd></>)}
+              {f.cve && f.cve !== "No aplica" && (<><dt>CVE</dt><dd className="mono">{f.cve}</dd></>)}
+              {f.cwe && (<><dt>CWE</dt><dd className="mono">{f.cwe}</dd></>)}
+              {f.evidencia && (<><dt>Evidencia</dt><dd>{f.evidencia}</dd></>)}
+              {f.recomendacion && (<><dt>Recomendación</dt><dd>{f.recomendacion}</dd></>)}
+              {f.mas_info && (<><dt>Más info</dt><dd className="mono">{f.mas_info}</dd></>)}
+              {f.ocurrencias > 1 && (<><dt>Ocurrencias</dt><dd>{f.ocurrencias}</dd></>)}
             </dl>
           </details>
         ))}
@@ -288,74 +192,49 @@ export default function ScanDetail() {
   const [prog, setProg] = useState(null);
   const [error, setError] = useState(null);
   const [launching, setLaunching] = useState(false);
+  const [findings, setFindings] = useState(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    getScan(id)
-      .then(setScan)
-      .catch((e) => setError(messagesFromError(e)[0]));
+    getScan(id).then(setScan).catch((e) => setError(messagesFromError(e)[0]));
   }, [id]);
 
-  // Progreso en vivo: WebSocket como canal principal, polling como respaldo.
-  // La DB es la fuente de verdad: ante cualquier aviso (WS o tick) se vuelve
-  // a pedir getProgress. Al llegar a estado terminal se corta todo.
-  useEffect(() => {
-    let ws = null;
-    let poll = null;
-    let debounce = null;
-    let stopped = false;
+  const terminal = prog && (prog.status === "completado" || prog.status === "error");
 
+  const loadFindings = useCallback(() => {
+    getFindings(id).then(setFindings).catch(() => {});
+  }, [id]);
+
+  useEffect(() => {
+    if (terminal) loadFindings();
+  }, [terminal, loadFindings]);
+
+  // Progreso en vivo: WebSocket principal, polling de respaldo; la DB es la
+  // fuente de verdad. Al llegar a estado terminal se corta todo.
+  useEffect(() => {
+    let ws = null, poll = null, debounce = null, stopped = false;
     const teardown = () => {
       stopped = true;
-      if (ws) {
-        try {
-          ws.close();
-        } catch {
-          /* noop */
-        }
-        ws = null;
-      }
-      if (poll) {
-        clearInterval(poll);
-        poll = null;
-      }
+      if (ws) { try { ws.close(); } catch { /* noop */ } ws = null; }
+      if (poll) { clearInterval(poll); poll = null; }
       clearTimeout(debounce);
     };
-
     const refetch = async () => {
       try {
         const p = await getProgress(id);
         if (stopped) return;
         setProg(p);
         if (p.status === "completado" || p.status === "error") teardown();
-      } catch {
-        /* la próxima señal reintenta */
-      }
+      } catch { /* la próxima señal reintenta */ }
     };
-
-    const nudge = () => {
-      clearTimeout(debounce);
-      debounce = setTimeout(refetch, 250);
-    };
-
-    const startPolling = () => {
-      if (poll || stopped) return;
-      poll = setInterval(refetch, 2500);
-    };
-
-    refetch(); // snapshot inicial
-
+    const nudge = () => { clearTimeout(debounce); debounce = setTimeout(refetch, 250); };
+    const startPolling = () => { if (poll || stopped) return; poll = setInterval(refetch, 2500); };
+    refetch();
     try {
       ws = openProgressSocket(id, nudge);
-      ws.onclose = () => {
-        if (!stopped) startPolling();
-      };
-      ws.onerror = () => {
-        if (!stopped) startPolling();
-      };
-    } catch {
-      startPolling();
-    }
-
+      ws.onclose = () => { if (!stopped) startPolling(); };
+      ws.onerror = () => { if (!stopped) startPolling(); };
+    } catch { startPolling(); }
     return teardown;
   }, [id]);
 
@@ -371,81 +250,71 @@ export default function ScanDetail() {
     }
   };
 
+  const reanalyze = async () => {
+    setBusy(true);
+    try {
+      await analyzeScan(id);
+      let n = 0;
+      const iv = setInterval(async () => { await loadFindings(); if (++n >= 4) clearInterval(iv); }, 1500);
+    } catch { /* noop */ } finally {
+      setTimeout(() => setBusy(false), 1500);
+    }
+  };
+
   if (error) {
     return (
-      <div className="detail">
-        <div className="form-errors" role="alert">
-          <p>{error}</p>
-        </div>
-      </div>
+      <div className="form-errors" role="alert"><p>{error}</p></div>
     );
   }
-
-  if (!scan) return <p className="muted">Cargando barrido…</p>;
+  if (!scan) return <p className="muted">Cargando análisis…</p>;
 
   const notLaunched = !prog || prog.status === "creado";
+  const status = prog?.status || scan.status;
 
   return (
     <div className="detail">
-      <section className="intro">
-        <p className="eyebrow">
-          barrido #{scan.id} · {scan.analysis_type}
+      <header className="detail-hero">
+        <div className="detail-hero-main">
+          <p className="eyebrow2">análisis #{scan.id} · {scan.analysis_type}</p>
+          <h1 className="detail-target mono">{scan.target}</h1>
+          <div className="detail-status">
+            <span className={`badge badge-${status}`}>{status}</span>
+            {(scan.cliente || scan.project?.client) && (
+              <span className="muted">· {scan.cliente || scan.project.client}</span>
+            )}
+          </div>
+        </div>
+        {terminal && (
+          <div className="detail-actions-top">
+            <a className="btn btn-primary" href={reportUrl(id)}>Exportar informe</a>
+            <button className="btn btn-ghost" disabled={busy} onClick={reanalyze}>
+              {busy ? "Reprocesando…" : "Re-analizar"}
+            </button>
+          </div>
+        )}
+      </header>
+
+      {terminal && findings && <SevHero summary={findings.summary} />}
+      {terminal && findings && (
+        <p className="findings-meta mono">
+          {findings.summary.a_validar} a validar · {findings.summary.positivos} buena postura
         </p>
-        <div className="detail-title-row">
-          <h1 className="h1 mono">{scan.target}</h1>
-        </div>
-      </section>
+      )}
 
-      <div className="detail-grid">
-        <div className="panel">
-          <div className="section-label">
-            <span className="section-label-text">proyecto</span>
-            <span className="section-rule" />
-          </div>
-          <dl className="kv">
-            <dt>Proyecto</dt>
-            <dd>{scan.project.name}</dd>
-            <dt>Cliente</dt>
-            <dd>{scan.project.client || "—"}</dd>
-            <dt>Creado</dt>
-            <dd className="mono">{fmtDate(scan.created_at)}</dd>
-          </dl>
-        </div>
-
-        <div className="panel panel-auth">
-          <div className="section-label">
-            <span className="section-label-text">autorización</span>
-            <span className="section-rule" />
-          </div>
-          <dl className="kv">
-            <dt>Responsable</dt>
-            <dd>{scan.authorization.responsible_user}</dd>
-            <dt>Confirmada</dt>
-            <dd>
-              {scan.authorization.authorized ? (
-                <span className="ok-check">✓ sí</span>
-              ) : (
-                "no"
-              )}
-            </dd>
-            <dt>Referencia</dt>
-            <dd className="mono">{scan.authorization.note || "—"}</dd>
-          </dl>
-        </div>
+      <div className="meta-strip">
+        <span><em>Proyecto</em> {scan.project.name}</span>
+        <span><em>Cliente</em> {scan.cliente || scan.project.client || "—"}</span>
+        <span><em>Responsable</em> {scan.authorization.responsible_user}</span>
+        <span><em>Autorización</em> {scan.authorization.authorized ? "✓ confirmada" : "no"}</span>
+        <span><em>Creado</em> <b className="mono">{fmtDate(scan.created_at)}</b></span>
       </div>
 
       {notLaunched ? (
         <div className="detail-actions">
-          <button
-            className="btn btn-primary btn-lg launch-btn"
-            disabled={launching}
-            onClick={launch}
-          >
+          <button className="btn btn-primary btn-lg launch-btn" disabled={launching} onClick={launch}>
             {launching ? "Encolando…" : "Lanzar BIEC"}
           </button>
-          <p className="hint">
-            Corre las 5 etapas en orden sobre el objetivo autorizado.
-          </p>
+          <p className="hint">Corre las 5 etapas en orden sobre el objetivo autorizado.</p>
         </div>
       ) : (
         <div className="exec-wrap">
@@ -457,9 +326,7 @@ export default function ScanDetail() {
         </div>
       )}
 
-      {prog && (prog.status === "completado" || prog.status === "error") && (
-        <Findings scanId={id} />
-      )}
+      {terminal && findings && <FindingsList data={findings} />}
     </div>
   );
 }

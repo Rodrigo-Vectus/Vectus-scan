@@ -912,3 +912,72 @@ body { font-weight: 400; letter-spacing: -0.006em; }
 .badge-sev.sev-media { color: var(--sev-media); border-color: rgba(180,83,9,0.5); }
 .badge-sev.sev-baja { color: var(--sev-baja); border-color: rgba(45,212,191,0.45); }
 .badge-sev.sev-info { color: var(--muted); border-color: var(--border-strong); }
+
+/* ═══════════════════════════════════════════════════════════
+   Desglose (ScanDetail) — jerarquía: resumen arriba, más aire.
+   ═══════════════════════════════════════════════════════════ */
+.detail { max-width: 1000px; }
+
+.detail-hero {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 24px; margin-bottom: 28px;
+}
+.detail-hero-main { min-width: 0; }
+.detail-target {
+  font-size: 26px; font-weight: 600; color: var(--text-hi);
+  margin: 9px 0 12px; letter-spacing: -0.01em; word-break: break-all; line-height: 1.2;
+}
+.detail-status { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.detail-actions-top { display: flex; gap: 10px; flex: none; }
+
+/* Resumen de severidad — imponente */
+.sev-hero {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px;
+  margin-bottom: 12px;
+}
+.sev-tile {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px 18px;
+  display: flex; flex-direction: column; gap: 8px;
+  position: relative; overflow: hidden;
+}
+.sev-tile::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+}
+.sev-tile-num { font-size: 40px; font-weight: 500; color: var(--text-hi); line-height: 1; letter-spacing: -0.02em; }
+.sev-tile-lbl {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 1.4px;
+  text-transform: uppercase; color: var(--muted);
+}
+.tile-critica::before { background: var(--sev-critica); }
+.tile-alta::before { background: var(--sev-alta); }
+.tile-media::before { background: var(--sev-media); }
+.tile-baja::before { background: var(--sev-baja); }
+.tile-info::before { background: var(--border-strong); }
+.tile-total { background: var(--panel-2); }
+.tile-total::before { background: var(--accent); }
+.tile-total .sev-tile-num { color: var(--accent); }
+
+.findings-meta { font-size: 12px; color: var(--muted); margin: 0 0 26px; }
+
+/* Tira compacta de metadatos */
+.meta-strip {
+  display: flex; flex-wrap: wrap; gap: 10px 26px;
+  padding: 16px 20px; margin-bottom: 32px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 13px; color: var(--text);
+}
+.meta-strip span { display: inline-flex; align-items: baseline; gap: 8px; }
+.meta-strip em {
+  font-style: normal; font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 1px; text-transform: uppercase; color: var(--muted);
+}
+.meta-strip b { font-weight: 500; color: var(--text-hi); }
+
+.exec-wrap { margin-bottom: 34px; }
+.findings-wrap { margin-top: 8px; }
+
+@media (max-width: 720px) {
+  .detail-hero { flex-direction: column; }
+  .sev-hero { grid-template-columns: repeat(3, 1fr); }
+}
