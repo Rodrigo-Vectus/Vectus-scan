@@ -258,6 +258,12 @@ La portada muestra una tira de **indicadores** (barridos totales, completados, e
 
 ---
 
+## Rediseño de la web (Fase 6)
+
+La consola se reorganizó como un panel SOC con **barra lateral** (Scanners · Informes · Dashboard) y se sacaron las ejecuciones de la pantalla principal. Paleta dark navy (`#070B14`) con acentos cyan (`#22D3EE`) y teal (`#2DD4BF`), tipografías **Inter** (interfaz) y **JetBrains Mono** (IDs/IPs/datos), bundleadas para no depender de red. **Scanners** es el inicio (limpio), **Informes** permite abrir el desglose y el informe por ID de análisis, y **Dashboard** muestra indicadores y distribución por severidad.
+
+---
+
 ## Licencia
 
 Propiedad de Grupo VECTUS. Uso interno.
