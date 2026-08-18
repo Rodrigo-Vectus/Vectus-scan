@@ -1,21 +1,21 @@
 import redis
 import redis.asyncio as aioredis
-from celery.result import AsyncResult
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.celery_client import celery_client
 from app.config import settings
 from app.db import check_database
 from app.routers import meta, scans
 
 app = FastAPI(title=settings.app_name, version="0.1.0")
 
-# CORS abierto en F0 para facilitar el desarrollo local.
-# Se restringe a orígenes concretos en fases posteriores.
+# CORS restringido a orígenes explícitos (CORS_ORIGINS en el .env).
+# Con allow_credentials=True es obligatorio NO usar "*": los navegadores
+# ignoran las cookies si el origen es comodín. Esto además deja preparado
+# el terreno para la sesión por cookie de F7.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -104,23 +104,3 @@ async def ws_scan_progress(websocket: WebSocket, scan_id: int):
                 await close()
             except Exception:
                 pass
-
-
-# ─── Endpoints de depuración (solo F0) ──────────────────────────────
-# Prueban el circuito backend → Redis → worker → resultado.
-# Se eliminan cuando el motor real de scans llegue en la Fase 2.
-
-@app.post("/debug/ping-worker")
-def ping_worker():
-    result = celery_client.send_task("worker.tasks.ping")
-    return {"task_id": result.id}
-
-
-@app.get("/debug/task/{task_id}")
-def task_status(task_id: str):
-    res = AsyncResult(task_id, app=celery_client)
-    return {
-        "task_id": task_id,
-        "status": res.status,
-        "result": res.result if res.ready() else None,
-    }

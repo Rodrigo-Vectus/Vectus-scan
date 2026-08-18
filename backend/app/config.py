@@ -10,6 +10,13 @@ class Settings(BaseSettings):
     app_name: str = "Vectus SCAN API"
     environment: str = "development"
 
+    # CORS
+    # Orígenes permitidos, separados por coma, leídos de CORS_ORIGINS.
+    # En prod el front y /api son MISMO origen (nginx en :8080), así que CORS
+    # casi no interviene; la lista importa sobre todo en desarrollo, donde el
+    # dev server de Vite corre en otro puerto. Ajustar en el .env del server.
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+
     # Postgres
     postgres_user: str = "vectus"
     postgres_password: str = "vectus"
@@ -22,6 +29,11 @@ class Settings(BaseSettings):
     redis_port: int = 6379
     celery_broker_db: int = 0
     celery_result_db: int = 1
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """Orígenes CORS como lista, tolerante a espacios y comas colgantes."""
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     @property
     def database_url(self) -> str:
