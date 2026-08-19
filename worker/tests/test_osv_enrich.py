@@ -163,10 +163,11 @@ def _write(tmp, name, content):
 
 
 def test_whatweb_attaches_pkg_hint():
+    # whatweb reporta con capitalización variable: "JQuery" (no "jQuery").
     data = [{
         "target": "http://t.example/",
         "plugins": {
-            "jQuery": {"version": ["3.3.1"]},
+            "JQuery": {"version": ["3.3.1"]},
             "Bootstrap": {"version": ["4.4.1"]},
             "Moment.js": {"version": ["2.24.0"]},
             "HTTPServer": {"string": ["Apache/2.4.6 (CentOS)"]},

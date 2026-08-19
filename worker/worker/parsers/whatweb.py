@@ -27,6 +27,11 @@ _LIB_OSV = {
     "Modernizr": "modernizr",
 }
 
+# Índice por clave en minúsculas: whatweb reporta el plugin con capitalización
+# variable (p. ej. "JQuery" en vez de "jQuery"), así que el match es
+# case-insensitive. Valor = (nombre canónico para mostrar, paquete npm).
+_LIB_INDEX = {name.lower(): (name, npm) for name, npm in _LIB_OSV.items()}
+
 
 def _first_version(versions) -> str:
     """Primera versión concreta (x.y[.z]) de la lista, o '' si no hay."""
@@ -80,10 +85,11 @@ def parse(path: str, ctx) -> list[FindingCandidate]:
                 if ver:
                     out.append(version_review(prod, ver, "whatweb", target))
 
-        for lib, npm_name in _LIB_OSV.items():
-            info = plugins.get(lib)
-            if not info:
+        for plugin_name, info in plugins.items():
+            entry = _LIB_INDEX.get(plugin_name.lower())
+            if not entry or not info:
                 continue
+            lib, npm_name = entry
             versions = info.get("version") or []
             ver = ", ".join(str(v) for v in versions) if versions else "sin versión"
             exact = _first_version(versions)
