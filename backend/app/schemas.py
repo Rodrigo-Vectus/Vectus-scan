@@ -207,3 +207,121 @@ class FindingsResponse(BaseModel):
     status: ScanStatus
     summary: SeveritySummary
     findings: list[FindingRead]
+
+
+# ─── Autenticación / usuarios / auditoría (F7) ──────────────────────
+
+from app.models import ROLES  # noqa: E402
+
+
+def _norm_email(v: str) -> str:
+    v = (v or "").strip().lower()
+    if "@" not in v or "." not in v.split("@")[-1]:
+        raise ValueError("email inválido")
+    return v
+
+
+class RequestCodeIn(BaseModel):
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def _email(cls, v: str) -> str:
+        return _norm_email(v)
+
+
+class VerifyCodeIn(BaseModel):
+    email: str
+    code: str
+
+    @field_validator("email")
+    @classmethod
+    def _email(cls, v: str) -> str:
+        return _norm_email(v)
+
+    @field_validator("code")
+    @classmethod
+    def _code(cls, v: str) -> str:
+        v = (v or "").strip()
+        if not (v.isdigit() and len(v) == 6):
+            raise ValueError("el código debe tener 6 dígitos")
+        return v
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
+class UserRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+    nombre: str
+    rol: str
+    activo: bool
+    created_at: datetime
+
+
+class UserCreate(BaseModel):
+    email: str
+    nombre: str
+    rol: str = "analista"
+
+    @field_validator("email")
+    @classmethod
+    def _email(cls, v: str) -> str:
+        return _norm_email(v)
+
+    @field_validator("nombre")
+    @classmethod
+    def _nombre(cls, v: str) -> str:
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("el nombre no puede estar vacío")
+        return v
+
+    @field_validator("rol")
+    @classmethod
+    def _rol(cls, v: str) -> str:
+        if v not in ROLES:
+            raise ValueError(f"rol inválido: debe ser uno de {ROLES}")
+        return v
+
+
+class UserUpdate(BaseModel):
+    """Todos opcionales: se actualiza solo lo que venga."""
+
+    nombre: str | None = None
+    rol: str | None = None
+    activo: bool | None = None
+
+    @field_validator("nombre")
+    @classmethod
+    def _nombre(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip()
+        if not v:
+            raise ValueError("el nombre no puede estar vacío")
+        return v
+
+    @field_validator("rol")
+    @classmethod
+    def _rol(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if v not in ROLES:
+            raise ValueError(f"rol inválido: debe ser uno de {ROLES}")
+        return v
+
+
+class AuthEventRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+    kind: str
+    at: datetime
+    ip: str | None
+    detail: str | None

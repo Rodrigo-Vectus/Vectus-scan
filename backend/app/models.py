@@ -231,3 +231,102 @@ class Finding(Base):
     dedup_key: Mapped[str] = mapped_column(String(300), nullable=False)
 
     scan: Mapped["Scan"] = relationship(back_populates="findings")
+
+
+# ─── Autenticación / usuarios / auditoría (F7) ──────────────────────
+# Roles y tipos de evento como VARCHAR + constantes (mismo criterio que
+# severidad/estado: sin enum de PG, más simple de migrar/extender).
+
+ROL_ADMIN = "administrador"
+ROL_ANALISTA = "analista"
+ROLES = [ROL_ADMIN, ROL_ANALISTA]
+
+# Tipos de evento de auditoría. La vista de accesos (login/logout) sale
+# de filtrar por AUTH_LOGIN / AUTH_LOGOUT.
+AUTH_CODE_SENT = "code_sent"
+AUTH_LOGIN = "login"
+AUTH_LOGOUT = "logout"
+AUTH_CODE_FAILED = "code_failed"
+AUTH_LOGIN_FAILED = "login_failed"
+
+
+class User(Base):
+    """Usuario de la plataforma. El OTP solo se envía a usuarios que existan
+    aquí y estén `activo`. Nunca se borra un usuario: se desactiva, para
+    preservar la auditoría (AuthEvent referencia el email)."""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(
+        String(320), nullable=False, unique=True, index=True
+    )
+    nombre: Mapped[str] = mapped_column(String(200), nullable=False)
+    rol: Mapped[str] = mapped_column(String(20), nullable=False, default=ROL_ANALISTA)
+    activo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class OtpCode(Base):
+    """Código OTP de un solo uso. Se guarda HASHEADO (HMAC con pepper),
+    nunca en claro. `used_at` marca el consumo; `attempts` limita los
+    intentos fallidos; `expires_at` la ventana de 10 minutos."""
+
+    __tablename__ = "otp_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
+    code_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class AuthSession(Base):
+    """Sesión por cookie. El token viaja SOLO en la cookie httpOnly; en la
+    DB se guarda su hash (un dump de la tabla no permite secuestrar sesiones).
+    Sesión deslizante: `expires_at` se corre cuando pasó más de la mitad de
+    su vida (se renueva en `deps.get_current_user`)."""
+
+    __tablename__ = "sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    token_hash: Mapped[str] = mapped_column(
+        String(128), nullable=False, unique=True, index=True
+    )
+    email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class AuthEvent(Base):
+    """Bitácora de auditoría de autenticación. Fuente de la vista de accesos
+    (login/logout por usuario y fecha) y del rastro de códigos enviados/
+    fallidos."""
+
+    __tablename__ = "auth_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+    ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    detail: Mapped[str | None] = mapped_column(String(300), nullable=True)

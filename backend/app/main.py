@@ -1,13 +1,40 @@
+import logging
+from contextlib import asynccontextmanager
+
 import redis
 import redis.asyncio as aioredis
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.db import check_database
-from app.routers import meta, scans
+from app.db import SessionLocal, check_database
+from app.deps import require_auth
+from app.routers import auth, meta, scans, users
 
-app = FastAPI(title=settings.app_name, version="0.1.0")
+logger = logging.getLogger("vectus.startup")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Siembra el admin inicial (idempotente) al arrancar.
+
+    El entrypoint corre `alembic upgrade head` antes de levantar uvicorn, así
+    que aquí las tablas ya existen. Si falla, se loguea pero no tumba la app.
+    """
+    from app.seed import seed_admin
+
+    try:
+        db = SessionLocal()
+        try:
+            seed_admin(db)
+        finally:
+            db.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.error("No se pudo sembrar el admin inicial: %s", exc)
+    yield
+
+
+app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
 
 # CORS restringido a orígenes explícitos (CORS_ORIGINS en el .env).
 # Con allow_credentials=True es obligatorio NO usar "*": los navegadores
@@ -21,8 +48,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(meta.router)
-app.include_router(scans.router)
+# Endpoints de negocio: protegidos por `require_auth`, que respeta
+# AUTH_REQUIRED (con False deja pasar; con True exige sesión). El router de
+# auth y /health quedan siempre públicos.
+app.include_router(meta.router, dependencies=[Depends(require_auth)])
+app.include_router(scans.router, dependencies=[Depends(require_auth)])
+app.include_router(auth.router)
+app.include_router(users.router)
 
 
 def check_redis() -> bool:
