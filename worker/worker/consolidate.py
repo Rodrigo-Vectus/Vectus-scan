@@ -7,6 +7,7 @@ los candidatos (mismo hallazgo desde tools distintas = un solo Finding con
 import os
 
 from worker.db import SessionLocal
+from worker.enrich import enrich_osv
 from worker.models import Finding, Scan
 from worker.parsers import SEV_ORDER, SEV_INFO, EST_FALSO_POSITIVO, FindingCandidate, Ctx
 from worker.parsers import (
@@ -134,6 +135,9 @@ def run(scan_id: int, data_root: str = DATA_ROOT) -> int:
         scan_dir = os.path.join(data_root, str(scan_id))
         cands = _collect(scan_dir, ctx) if os.path.isdir(scan_dir) else []
         cands = _correlate(cands, scan_dir)
+        # Enriquecimiento por CVE vía OSV (F8a): valida versiones de librería
+        # cliente y confirma las vulnerables. Degrada elegante si OSV no está.
+        cands = enrich_osv(cands)
         merged = _merge(cands)
 
         # Idempotente: borrar findings previos del scan y reescribir.

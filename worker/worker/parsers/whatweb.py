@@ -14,7 +14,27 @@ _PLACEHOLDER_RE = re.compile(
     r"(tu@|you@|your@|example@|user@|email@|nombre@|test@|@example\.|@email\.|@dominio\.|@domain\.)",
     re.IGNORECASE,
 )
-_LIB_KEYS = {"jQuery", "Bootstrap", "React", "Vue.js", "AngularJS", "Modernizr", "Lodash"}
+# Plugin de whatweb → nombre del paquete en npm (para validar CVEs vía OSV, F8).
+_LIB_OSV = {
+    "jQuery": "jquery",
+    "Bootstrap": "bootstrap",
+    "Moment.js": "moment",
+    "core-js": "core-js",
+    "Lodash": "lodash",
+    "React": "react",
+    "Vue.js": "vue",
+    "AngularJS": "angular",
+    "Modernizr": "modernizr",
+}
+
+
+def _first_version(versions) -> str:
+    """Primera versión concreta (x.y[.z]) de la lista, o '' si no hay."""
+    for v in versions or []:
+        s = str(v).strip()
+        if re.match(r"^\d+(\.\d+)+", s):
+            return s
+    return ""
 
 
 def _server_key(value: str) -> str:
@@ -60,12 +80,17 @@ def parse(path: str, ctx) -> list[FindingCandidate]:
                 if ver:
                     out.append(version_review(prod, ver, "whatweb", target))
 
-        for lib in _LIB_KEYS:
+        for lib, npm_name in _LIB_OSV.items():
             info = plugins.get(lib)
             if not info:
                 continue
             versions = info.get("version") or []
             ver = ", ".join(str(v) for v in versions) if versions else "sin versión"
+            exact = _first_version(versions)
+            # Si hay versión exacta, se adjunta la pista `pkg` para que el
+            # enriquecedor la valide contra OSV (F8a). Sin versión, queda como
+            # simple detección (info).
+            pkg = ("npm", npm_name, exact) if exact else None
             out.append(
                 FindingCandidate(
                     titulo=f"Librería front-end detectada: {lib} ({ver})",
@@ -76,6 +101,7 @@ def parse(path: str, ctx) -> list[FindingCandidate]:
                     evidencia=f"{lib}: {ver}",
                     recomendacion="Verificar que la versión no tenga CVE conocidos (validación en fase de bajo nivel).",
                     dedup_key=f"lib:{lib.lower()}",
+                    pkg=pkg,
                 )
             )
 

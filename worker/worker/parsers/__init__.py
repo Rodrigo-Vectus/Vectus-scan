@@ -47,6 +47,11 @@ class FindingCandidate:
     # Clave semántica de de-dup (B.11). Si dos candidatos comparten dedup_key,
     # se fusionan. Por defecto se arma única por (tool, titulo, sistema).
     dedup_key: str = ""
+    # Pista opcional para el enriquecimiento por CVE (F8): (ecosistema, paquete,
+    # versión) para consultar OSV. La setean los parsers que detectan una
+    # librería/paquete con versión (whatweb, retire.js). No se persiste: es una
+    # ayuda transitoria para la correlación.
+    pkg: tuple[str, str, str] | None = None
 
     def key(self) -> str:
         if self.dedup_key:
