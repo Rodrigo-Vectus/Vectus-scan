@@ -3,6 +3,7 @@ const BASE = "/api";
 async function req(path, opts = {}) {
   const res = await fetch(BASE + path, {
     headers: { "Content-Type": "application/json" },
+    credentials: "same-origin", // manda la cookie de sesión (mismo origen)
     ...opts,
   });
 
@@ -65,3 +66,25 @@ export function openProgressSocket(id, onNudge) {
   };
   return ws;
 }
+
+// ─── Autenticación / usuarios (F7) ──────────────────────────────────
+export const requestCode = (email) =>
+  req("/auth/request-code", { method: "POST", body: JSON.stringify({ email }) });
+export const verifyCode = (email, code) =>
+  req("/auth/verify", { method: "POST", body: JSON.stringify({ email, code }) });
+export const logout = () => req("/auth/logout", { method: "POST" });
+export const getMe = () => req("/auth/me");
+
+export const listUsers = () => req("/users");
+export const createUser = (body) =>
+  req("/users", { method: "POST", body: JSON.stringify(body) });
+export const updateUser = (id, body) =>
+  req(`/users/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+
+export const getAuthEvents = (params = {}) => {
+  const q = new URLSearchParams();
+  if (params.email) q.set("email", params.email);
+  if (params.limit) q.set("limit", String(params.limit));
+  const qs = q.toString();
+  return req(`/auth/events${qs ? `?${qs}` : ""}`);
+};

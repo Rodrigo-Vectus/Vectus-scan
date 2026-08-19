@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.db import SessionLocal, check_database
 from app.deps import require_auth
+from app import sessions as sessions_mod
 from app.routers import auth, meta, scans, users
 
 logger = logging.getLogger("vectus.startup")
@@ -92,6 +93,31 @@ def health():
     }
 
 
+async def _ws_authorized(websocket: WebSocket) -> bool:
+    """Valida la cookie de sesión en el handshake del WebSocket.
+
+    Respeta AUTH_REQUIRED: con False deja pasar (rollout); con True exige una
+    sesión válida. Lee la cookie del propio request del WS (mismo origen).
+    """
+    if not settings.auth_required:
+        return True
+    token = websocket.cookies.get(settings.session_cookie_name)
+    if not token:
+        return False
+    db = SessionLocal()
+    try:
+        from sqlalchemy import select
+        from app.models import User
+
+        sess = sessions_mod.resolve_session(db, token)
+        if sess is None:
+            return False
+        user = db.scalars(select(User).where(User.email == sess.email)).first()
+        return bool(user and user.activo)
+    finally:
+        db.close()
+
+
 @app.websocket("/ws/scans/{scan_id}")
 async def ws_scan_progress(websocket: WebSocket, scan_id: int):
     """Push en vivo del progreso de un scan (Fase 2b).
@@ -101,6 +127,9 @@ async def ws_scan_progress(websocket: WebSocket, scan_id: int):
     front, al recibirlos, vuelve a pedir `/scans/{id}/progress` (la DB sigue
     siendo la fuente de verdad). Si el WebSocket falla, el front cae a polling.
     """
+    if not await _ws_authorized(websocket):
+        await websocket.close(code=1008)  # Policy Violation
+        return
     await websocket.accept()
     client = aioredis.Redis(
         host=settings.redis_host, port=settings.redis_port

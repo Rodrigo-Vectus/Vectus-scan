@@ -981,3 +981,139 @@ body { font-weight: 400; letter-spacing: -0.006em; }
   .detail-hero { flex-direction: column; }
   .sev-hero { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   F7b — Autenticación (login, usuarios, accesos)
+   ═══════════════════════════════════════════════════════════ */
+
+/* Splash mientras se resuelve la sesión */
+.auth-splash {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  gap: 10px; color: var(--muted); font-family: var(--font-mono); font-size: 13px;
+}
+
+/* ── Login ── */
+.login-screen {
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 18px; padding: 24px;
+  background:
+    radial-gradient(1100px 500px at 50% -10%, rgba(34,211,238,0.06), transparent 60%),
+    var(--bg);
+}
+.login-card {
+  width: 100%; max-width: 400px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 30px 28px 26px;
+  box-shadow: 0 24px 60px -30px rgba(0,0,0,0.8);
+}
+.login-brand {
+  display: flex; align-items: center; gap: 11px; margin-bottom: 22px;
+}
+.login-brand .brand-mark { width: 30px; height: 30px; }
+.login-title {
+  font-size: 21px; font-weight: 650; color: var(--text-hi);
+  margin: 6px 0 7px; letter-spacing: -0.015em;
+}
+.login-sub { color: var(--muted); font-size: 13.5px; margin: 0 0 20px; line-height: 1.5; }
+.login-info {
+  border: 1px solid rgba(45,212,191,0.28); background: rgba(45,212,191,0.06);
+  color: var(--accent-2); border-radius: var(--radius-sm);
+  padding: 10px 13px; font-size: 12.5px; margin-bottom: 16px;
+}
+.code-input {
+  letter-spacing: 8px; font-size: 20px; text-align: center;
+}
+.login-alt { display: flex; justify-content: space-between; margin-top: 16px; }
+.linklike {
+  background: none; border: none; cursor: pointer; padding: 0;
+  color: var(--muted); font-size: 12.5px; font-family: var(--font-sans);
+}
+.linklike:hover:not(:disabled) { color: var(--accent); }
+.linklike:disabled { opacity: 0.5; cursor: default; }
+.login-foot { font-size: 11px; color: var(--muted); letter-spacing: 0.5px; }
+
+/* ── Bloque de usuario en el sidebar ── */
+.sidebar-user {
+  border-top: 1px solid var(--border);
+  padding: 12px 14px; display: flex; align-items: center; gap: 10px;
+}
+.su-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.su-name {
+  font-size: 13px; color: var(--text-hi); font-weight: 500;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.su-role {
+  font-size: 10px; letter-spacing: 0.6px; color: var(--muted); text-transform: lowercase;
+}
+.su-logout {
+  flex: none; width: 32px; height: 32px; display: grid; place-items: center;
+  background: transparent; border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm); color: var(--muted); cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.su-logout:hover { color: var(--sev-alta); border-color: var(--sev-alta); }
+.su-logout svg { width: 15px; height: 15px; }
+
+/* ── Alta de usuario ── */
+.user-create {
+  display: grid; grid-template-columns: 1.4fr 1.4fr 0.9fr auto; gap: 10px;
+  margin-bottom: 22px;
+}
+.user-create input, .user-create select {
+  background: var(--panel); border: 1px solid var(--border-strong);
+  color: var(--text-hi); border-radius: var(--radius-sm);
+  padding: 9px 12px; font-size: 13.5px; font-family: var(--font-sans);
+}
+.user-create input:focus, .user-create select:focus {
+  outline: none; border-color: var(--accent);
+}
+
+/* ── Tabla de usuarios / accesos ── */
+.utable { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.utable-head, .utable-row {
+  display: grid; grid-template-columns: 1.6fr 1.3fr 1fr 0.9fr 1fr;
+  gap: 14px; align-items: center; padding: 11px 16px;
+}
+.utable-head {
+  background: var(--panel); font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 1.3px; text-transform: uppercase; color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.utable-row { border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text); }
+.utable-row:last-child { border-bottom: none; }
+.utable-row:hover { background: var(--panel); }
+.u-email { color: var(--text-hi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.u-you { color: var(--muted); font-style: normal; font-size: 11px; }
+.u-date { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.u-rolsel {
+  background: var(--panel-2); border: 1px solid var(--border-strong);
+  color: var(--text-hi); border-radius: 6px; padding: 5px 8px; font-size: 12.5px;
+}
+.u-rolsel:focus { outline: none; border-color: var(--accent); }
+.u-toggle {
+  font-family: var(--font-mono); font-size: 11px; padding: 3px 10px;
+  border-radius: 999px; cursor: pointer; background: transparent;
+  border: 1px solid var(--border-strong);
+}
+.u-toggle.is-on { color: var(--accent-2); border-color: rgba(45,212,191,0.4); background: rgba(45,212,191,0.06); }
+.u-toggle.is-off { color: var(--muted); }
+.u-on { color: var(--accent-2); font-family: var(--font-mono); font-size: 12px; }
+.u-off { color: var(--muted); font-family: var(--font-mono); font-size: 12px; }
+
+/* Accesos */
+.accesos-wrap { margin-top: 30px; }
+.utable-head.acc-head, .utable-row.acc-row {
+  grid-template-columns: 1.1fr 1.6fr 1fr 1fr;
+}
+.acc-kind { font-family: var(--font-mono); font-size: 12px; }
+.acc-login { color: var(--accent-2); }
+.acc-logout { color: var(--muted); }
+.acc-code_sent { color: var(--accent); }
+.acc-code_failed, .acc-login_failed { color: var(--sev-media); }
+.u-ip { color: var(--muted); font-size: 12px; }
+
+@media (max-width: 860px) {
+  .user-create { grid-template-columns: 1fr 1fr; }
+  .utable-head { display: none; }
+  .utable-row, .utable-row.acc-row { grid-template-columns: 1fr 1fr; row-gap: 6px; }
+}

@@ -1,5 +1,6 @@
-import { NavLink, Outlet, useLocation, useParams } from "react-router-dom";
-import { ScanLine, FileText, LayoutDashboard } from "lucide-react";
+import { NavLink, Outlet, useLocation, useParams, useNavigate } from "react-router-dom";
+import { ScanLine, FileText, LayoutDashboard, Users, LogOut } from "lucide-react";
+import { useAuth } from "../auth.jsx";
 
 function BrandMark() {
   // Arcos concéntricos: eco del isotipo VECTUS, en cyan/teal.
@@ -20,6 +21,9 @@ const NAV = [
   { group: "monitoreo", items: [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   ]},
+  { group: "gestión", items: [
+    { to: "/usuarios", label: "Usuarios", icon: Users },
+  ]},
 ];
 
 const TITLES = {
@@ -27,6 +31,7 @@ const TITLES = {
   "/informes": "Informes",
   "/dashboard": "Dashboard",
   "/scans/new": "Nuevo barrido",
+  "/usuarios": "Usuarios",
 };
 
 function Crumb() {
@@ -42,6 +47,14 @@ function Crumb() {
 }
 
 export default function Layout() {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const salir = async () => {
+    await signOut();
+    navigate("/login", { replace: true });
+  };
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -69,10 +82,17 @@ export default function Layout() {
             </div>
           ))}
         </nav>
-        <div className="sidebar-foot">
-          <span className="dot" />
-          operativo · BIEC
-        </div>
+        {user && (
+          <div className="sidebar-user">
+            <div className="su-info">
+              <span className="su-name">{user.nombre}</span>
+              <span className="su-role mono">{user.rol}</span>
+            </div>
+            <button className="su-logout" onClick={salir} title="Cerrar sesión">
+              <LogOut />
+            </button>
+          </div>
+        )}
       </aside>
 
       <div className="main">
