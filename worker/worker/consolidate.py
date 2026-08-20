@@ -18,6 +18,7 @@ from worker.parsers import (
     nmap_services,
     nmap_tls,
     nuclei,
+    retirejs,
     whatweb,
 )
 from worker.target import parse_target
@@ -35,6 +36,7 @@ _PARSERS = {
     "nikto.txt": nikto.parse,
     "subfinder.txt": context.parse_subfinder,
     "dig.txt": context.parse_dig,
+    "retirejs.json": retirejs.parse,
 }
 
 _EST_RANK = {"confirmado": 0, "a_validar": 1, "positivo": 2, "falso_positivo": 3}

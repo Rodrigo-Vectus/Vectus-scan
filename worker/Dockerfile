@@ -48,6 +48,14 @@ RUN set -eux; cd /tmp; \
 # ── Templates de nuclei (no bloquea el build si no hay red en build-time) ──
 RUN nuclei -update-templates >/dev/null 2>&1 || true
 
+# ── Firmas de retire.js (F8b): base oficial de detección de librerías JS.
+# Se bundlea en build (como los templates de nuclei); si no hay red, el
+# detector degrada y no reporta (no rompe el scan).
+RUN set -eux; mkdir -p /opt/retirejs; \
+    curl -sSL -o /opt/retirejs/jsrepository.json \
+      "https://raw.githubusercontent.com/RetireJS/retire.js/master/repository/jsrepository.json" \
+      || echo '{}' > /opt/retirejs/jsrepository.json
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

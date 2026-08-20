@@ -130,6 +130,18 @@ def _vulnerabilidades(tgt: Target, out_dir: str) -> list[ToolSpec]:
             False,
             360,
         ),
+        # retire.js (detector propio en Python, F8b): identifica librerías JS
+        # cliente + versión por firmas oficiales de retire.js. Su salida
+        # alimenta la validación OSV (F8a) para confirmar CVEs. Baja el HTML y
+        # los scripts del target autorizado (mismo objetivo; UA de navegador y
+        # throttling). Degrada elegante ante errores de red.
+        ToolSpec(
+            "retirejs",
+            ["python", "-m", "worker.tools.retirejs", tgt.url, "-o", _p(out_dir, "retirejs.json"), "--ua", USER_AGENT],
+            _p(out_dir, "retirejs.json"),
+            False,
+            180,
+        ),
     ]
 
 
