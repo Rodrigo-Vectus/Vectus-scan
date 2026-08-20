@@ -21,6 +21,17 @@ from worker.target import Target
 # worker). Se prefiere una lista acotada por rendimiento y por firewall (B.7).
 WORDLIST = "/usr/share/dirb/wordlists/common.txt"
 
+# Módulos de wapiti para la etapa de aplicación (F8c). Detección activa NO
+# intrusiva: envían payloads de prueba para *detectar* SQLi/XSS/inyección/
+# traversal/SSRF/XXE/etc. y observan la respuesta. NO explotan. Se excluyen a
+# propósito los módulos de fuerza bruta (brute_login_form) y los que solaparían
+# con lo que ya hacen curl_headers/nmap_tls (http_headers, csp, cookieflags,
+# ssl). Es el set que da mejores resultados manteniendo el principio rector.
+WAPITI_MODULES = (
+    "sql,xss,permanentxss,exec,file,crlf,ssrf,xxe,redirect,"
+    "htaccess,backup,ldap,log4shell,spring4shell,shellshock,upload,methods"
+)
+
 # User-Agent de navegador real. Muchos WAF/CDN cortan el UA por defecto de las
 # herramientas (curl/whatweb/nikto), devolviendo bloqueos o nada. Con un UA de
 # navegador se obtienen cabeceras y respuestas reales, lo que además habilita
@@ -145,6 +156,37 @@ def _vulnerabilidades(tgt: Target, out_dir: str) -> list[ToolSpec]:
     ]
 
 
+def _aplicacion(tgt: Target, out_dir: str) -> list[ToolSpec]:
+    # Detección activa de vulnerabilidades de aplicación (wapiti). Acotada por
+    # rendimiento y firewall: crawl de profundidad 2, tope de links por página,
+    # y un techo de tiempo global (`--max-scan-time`). `--verify-ssl 0` evita el
+    # problema de handshake TLS con servidores viejos. `--scope folder` mantiene
+    # el barrido dentro de la carpeta del objetivo autorizado.
+    return [
+        ToolSpec(
+            "wapiti",
+            [
+                "wapiti", "-u", tgt.url,
+                "-m", WAPITI_MODULES,
+                "--scope", "folder",
+                "-d", "2",
+                "--max-links-per-page", "20",
+                "--max-files-per-dir", "10",
+                "--max-scan-time", "480",
+                "-t", "10",
+                "-A", USER_AGENT,
+                "--verify-ssl", "0",
+                "--flush-session",
+                "--store-session", out_dir,
+                "-f", "json", "-o", _p(out_dir, "wapiti.json"),
+            ],
+            _p(out_dir, "wapiti.json"),
+            False,
+            660,  # margen sobre max-scan-time (480) para crawl + reporte
+        ),
+    ]
+
+
 def _configuracion(tgt: Target, out_dir: str) -> list[ToolSpec]:
     return [
         ToolSpec(
@@ -172,6 +214,7 @@ _BUILDERS = {
     "enumeracion": _enumeracion,
     "descubrimiento": _descubrimiento,
     "vulnerabilidades": _vulnerabilidades,
+    "aplicacion": _aplicacion,
     "configuracion": _configuracion,
 }
 

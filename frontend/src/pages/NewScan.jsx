@@ -119,8 +119,10 @@ export default function NewScan() {
               onChange={(e) => setAuthorized(e.target.checked)}
             />
             <span>
-              Confirmo que cuento con autorización por escrito para escanear
-              este objetivo.
+              Confirmo que cuento con autorización por escrito para realizar un
+              barrido sobre este objetivo, que incluye <b>pruebas activas de
+              detección de vulnerabilidades</b> (envío de solicitudes de prueba,
+              sin explotación).
             </span>
           </label>
           <textarea

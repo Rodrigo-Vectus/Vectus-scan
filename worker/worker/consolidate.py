@@ -19,6 +19,7 @@ from worker.parsers import (
     nmap_tls,
     nuclei,
     retirejs,
+    wapiti,
     whatweb,
 )
 from worker.target import parse_target
@@ -37,6 +38,7 @@ _PARSERS = {
     "subfinder.txt": context.parse_subfinder,
     "dig.txt": context.parse_dig,
     "retirejs.json": retirejs.parse,
+    "wapiti.json": wapiti.parse,
 }
 
 _EST_RANK = {"confirmado": 0, "a_validar": 1, "positivo": 2, "falso_positivo": 3}
