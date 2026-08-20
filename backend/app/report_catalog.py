@@ -207,6 +207,247 @@ CATALOG = {
         "mas_info": "OWASP – Session Management Cheat Sheet",
         "cvss": _b("3.1", complejidad="Baja"),
     },
+
+    # ── Vulnerabilidades de aplicación detectadas por wapiti (F8d) ──
+    # `cvss: {}` deja el desglose por defecto según la severidad del hallazgo
+    # (que la fija wapiti), manteniendo la tabla CVSS consistente con la severidad.
+    "wapiti-sqli": {
+        "cwe": "CWE-89",
+        "descripcion": (
+            "Se detectó una inyección SQL: la aplicación incorpora entrada del usuario en una "
+            "consulta a la base de datos sin sanearla adecuadamente. Un atacante puede alterar la "
+            "consulta para leer o modificar datos, eludir la autenticación o, según el motor y los "
+            "permisos, escalar el acceso sobre el sistema."),
+        "recomendacion": (
+            "Usar consultas parametrizadas (prepared statements) o un ORM que las aplique; nunca "
+            "concatenar entrada del usuario en la consulta. Validar y restringir los tipos de dato "
+            "esperados y aplicar el principio de mínimo privilegio en la cuenta de base de datos."),
+        "mas_info": "OWASP – SQL Injection Prevention Cheat Sheet; CWE-89",
+        "cvss": {},
+    },
+    "wapiti-xss": {
+        "cwe": "CWE-79",
+        "descripcion": (
+            "Se detectó Cross-Site Scripting (XSS) reflejado: la aplicación devuelve entrada del "
+            "usuario en la respuesta sin escaparla, permitiendo la ejecución de scripts en el "
+            "navegador de la víctima. Puede derivar en robo de sesión, phishing o acciones en "
+            "nombre del usuario."),
+        "recomendacion": (
+            "Escapar la salida según el contexto (HTML, atributo, JS, URL) y validar la entrada. "
+            "Aplicar una Content-Security-Policy restrictiva como defensa en profundidad."),
+        "mas_info": "OWASP – Cross Site Scripting Prevention Cheat Sheet; CWE-79",
+        "cvss": {},
+    },
+    "wapiti-xss-stored": {
+        "cwe": "CWE-79",
+        "descripcion": (
+            "Se detectó Cross-Site Scripting (XSS) almacenado: la entrada maliciosa se persiste en "
+            "el servidor y se sirve a otros usuarios, ejecutándose en sus navegadores. Su impacto "
+            "suele ser mayor que el del XSS reflejado porque no requiere interacción dirigida."),
+        "recomendacion": (
+            "Escapar la salida según contexto, validar y sanear la entrada antes de almacenarla, y "
+            "aplicar una Content-Security-Policy restrictiva."),
+        "mas_info": "OWASP – Cross Site Scripting Prevention Cheat Sheet; CWE-79",
+        "cvss": {},
+    },
+    "wapiti-exec": {
+        "cwe": "CWE-78",
+        "descripcion": (
+            "Se detectó ejecución de comandos: la aplicación pasa entrada del usuario a un "
+            "intérprete de comandos del sistema operativo o de código, permitiendo ejecutar "
+            "comandos arbitrarios en el servidor. Es una de las vulnerabilidades de mayor impacto."),
+        "recomendacion": (
+            "Evitar invocar el shell con entrada del usuario; usar APIs seguras con argumentos "
+            "separados y listas blancas. Ejecutar con mínimos privilegios y aislar el proceso."),
+        "mas_info": "OWASP – Command Injection; CWE-78",
+        "cvss": {},
+    },
+    "wapiti-path-traversal": {
+        "cwe": "CWE-22",
+        "descripcion": (
+            "Se detectó Path Traversal: la aplicación construye rutas de archivo con entrada del "
+            "usuario sin restringirla, permitiendo acceder a archivos fuera del directorio previsto "
+            "(p. ej. /etc/passwd) o incluir archivos no autorizados."),
+        "recomendacion": (
+            "Validar y normalizar las rutas contra una lista blanca; no usar entrada del usuario "
+            "directamente en operaciones de archivo. Confinar el acceso a un directorio base."),
+        "mas_info": "OWASP – Path Traversal; CWE-22",
+        "cvss": {},
+    },
+    "wapiti-ldap": {
+        "cwe": "CWE-90",
+        "descripcion": (
+            "Se detectó inyección LDAP: la entrada del usuario se incorpora a una consulta LDAP sin "
+            "sanearla, permitiendo alterar la consulta para eludir controles de autenticación o "
+            "extraer información del directorio."),
+        "recomendacion": (
+            "Escapar los metacaracteres LDAP de la entrada del usuario y usar APIs de consulta "
+            "parametrizadas. Aplicar mínimo privilegio en la cuenta de enlace (bind)."),
+        "mas_info": "OWASP – LDAP Injection Prevention Cheat Sheet; CWE-90",
+        "cvss": {},
+    },
+    "wapiti-crlf": {
+        "cwe": "CWE-93",
+        "descripcion": (
+            "Se detectó inyección CRLF: la aplicación refleja entrada del usuario en cabeceras HTTP "
+            "sin filtrar los caracteres de retorno de carro y salto de línea, permitiendo inyectar "
+            "cabeceras o dividir la respuesta (HTTP response splitting)."),
+        "recomendacion": (
+            "Eliminar o codificar los caracteres CR/LF de cualquier entrada que se incorpore a "
+            "cabeceras de respuesta. Usar APIs que impidan la inyección de cabeceras."),
+        "mas_info": "OWASP – CRLF Injection; CWE-93",
+        "cvss": {},
+    },
+    "wapiti-ssrf": {
+        "cwe": "CWE-918",
+        "descripcion": (
+            "Se detectó SSRF (Server-Side Request Forgery): la aplicación realiza peticiones a URLs "
+            "controladas por el usuario, permitiendo alcanzar servicios internos, metadatos de la "
+            "nube u otros recursos no expuestos."),
+        "recomendacion": (
+            "Validar y restringir los destinos con una lista blanca de dominios/IPs; bloquear "
+            "rangos internos y de metadatos. No seguir redirecciones hacia destinos no permitidos."),
+        "mas_info": "OWASP – Server Side Request Forgery Prevention Cheat Sheet; CWE-918",
+        "cvss": {},
+    },
+    "wapiti-xxe": {
+        "cwe": "CWE-611",
+        "descripcion": (
+            "Se detectó inyección de entidad externa XML (XXE): el analizador XML procesa entidades "
+            "externas definidas por el usuario, permitiendo leer archivos locales, realizar SSRF o "
+            "provocar denegación de servicio."),
+        "recomendacion": (
+            "Deshabilitar el procesamiento de entidades externas y DTD en el parser XML. Preferir "
+            "formatos y bibliotecas que no expandan entidades por defecto."),
+        "mas_info": "OWASP – XML External Entity Prevention Cheat Sheet; CWE-611",
+        "cvss": {},
+    },
+    "wapiti-open-redirect": {
+        "cwe": "CWE-601",
+        "descripcion": (
+            "Se detectó una redirección abierta: la aplicación redirige a una URL controlada por el "
+            "usuario sin validarla, lo que facilita ataques de phishing al aparentar provenir de un "
+            "dominio confiable."),
+        "recomendacion": (
+            "Validar el destino de la redirección contra una lista blanca de rutas o dominios "
+            "propios; evitar redirigir a URLs absolutas provistas por el usuario."),
+        "mas_info": "OWASP – Unvalidated Redirects and Forwards Cheat Sheet; CWE-601",
+        "cvss": {},
+    },
+    "wapiti-html-injection": {
+        "cwe": "CWE-79",
+        "descripcion": (
+            "Se detectó inyección de HTML: la aplicación refleja entrada del usuario en la página "
+            "sin sanearla, permitiendo insertar marcado que altera el contenido o habilita ataques "
+            "de ingeniería social."),
+        "recomendacion": (
+            "Escapar la salida en contexto HTML y validar la entrada. Aplicar una CSP restrictiva."),
+        "mas_info": "OWASP – Cross Site Scripting Prevention Cheat Sheet; CWE-79",
+        "cvss": {},
+    },
+    "wapiti-file-upload": {
+        "cwe": "CWE-434",
+        "descripcion": (
+            "Se detectó carga de archivos sin restricciones: la aplicación permite subir archivos "
+            "sin validar tipo, contenido o destino, habilitando potencialmente la carga y ejecución "
+            "de código en el servidor (web shell)."),
+        "recomendacion": (
+            "Validar el tipo real y la extensión contra una lista blanca, almacenar fuera de la raíz "
+            "web sin permisos de ejecución y renombrar los archivos. Limitar tamaño y escanear."),
+        "mas_info": "OWASP – Unrestricted File Upload; CWE-434",
+        "cvss": {},
+    },
+    "wapiti-htaccess": {
+        "cwe": "CWE-538",
+        "descripcion": (
+            "Se detectó una elusión de restricciones .htaccess: recursos que deberían estar "
+            "protegidos resultan accesibles, exponiendo contenido o funcionalidad restringida."),
+        "recomendacion": (
+            "Revisar y reforzar las reglas de control de acceso del servidor; no depender solo de "
+            ".htaccess para proteger recursos sensibles y verificar la configuración efectiva."),
+        "mas_info": "OWASP – Testing for Bypassing Authorization Schema; CWE-538",
+        "cvss": {},
+    },
+    "wapiti-backup": {
+        "cwe": "CWE-530",
+        "descripcion": (
+            "Se detectó un archivo de respaldo accesible (p. ej. .bak, .old, .zip). Estos archivos "
+            "suelen contener código fuente, credenciales o datos que no deberían ser públicos."),
+        "recomendacion": (
+            "Eliminar los archivos de respaldo del servidor web y evitar generarlos en rutas "
+            "accesibles. Bloquear extensiones de respaldo a nivel de servidor."),
+        "mas_info": "OWASP – Review Old Backup and Unreferenced Files; CWE-530",
+        "cvss": {},
+    },
+    "wapiti-dangerous-file": {
+        "cwe": "CWE-538",
+        "descripcion": (
+            "Se detectó un archivo potencialmente peligroso o sensible accesible en el servidor, "
+            "que puede exponer información o funcionalidad no destinada al público."),
+        "recomendacion": (
+            "Retirar el archivo del árbol web o restringir su acceso; revisar qué recursos se "
+            "publican y aplicar controles de acceso adecuados."),
+        "mas_info": "OWASP – Review Webserver Metafiles for Information Leakage; CWE-538",
+        "cvss": {},
+    },
+    "wapiti-log4shell": {
+        "cwe": "CWE-502",
+        "descripcion": (
+            "Se detectó exposición a Log4Shell (CVE-2021-44228): una versión vulnerable de Log4j "
+            "permite ejecución remota de código a través de la resolución de expresiones JNDI en "
+            "datos registrados."),
+        "recomendacion": (
+            "Actualizar Log4j a una versión corregida (2.17.1 o superior) de inmediato; mitigar "
+            "deshabilitando la búsqueda JNDI si no es posible actualizar."),
+        "mas_info": "Apache – Log4j Security; CVE-2021-44228",
+        "cvss": {},
+    },
+    "wapiti-spring4shell": {
+        "cwe": "CWE-94",
+        "descripcion": (
+            "Se detectó exposición a Spring4Shell: una vulnerabilidad en Spring que puede permitir "
+            "ejecución remota de código bajo ciertas configuraciones."),
+        "recomendacion": (
+            "Actualizar Spring Framework a una versión corregida y revisar la configuración de "
+            "binding de parámetros expuesta."),
+        "mas_info": "Spring – Security Advisories; CVE-2022-22965",
+        "cvss": {},
+    },
+    "wapiti-http-methods": {
+        "cwe": "CWE-16",
+        "descripcion": (
+            "El servidor habilita métodos HTTP potencialmente peligrosos (p. ej. TRACE, PUT, "
+            "DELETE). Métodos como TRACE pueden facilitar ataques de Cross-Site Tracing, y PUT/"
+            "DELETE, la modificación no autorizada de recursos si no están debidamente controlados."),
+        "recomendacion": (
+            "Deshabilitar los métodos HTTP que la aplicación no utiliza, dejando solo los "
+            "necesarios (habitualmente GET, POST y HEAD)."),
+        "mas_info": "OWASP – Test HTTP Methods; CWE-16",
+        "cvss": {},
+    },
+    "wapiti-stack-trace": {
+        "cwe": "CWE-209",
+        "descripcion": (
+            "Se detectó divulgación de stack trace: ante un error, la aplicación devuelve trazas "
+            "internas que revelan rutas, tecnologías, consultas o detalles de implementación útiles "
+            "para un atacante."),
+        "recomendacion": (
+            "Configurar el manejo de errores para no exponer trazas al cliente; registrar el "
+            "detalle solo del lado servidor y mostrar mensajes genéricos."),
+        "mas_info": "OWASP – Improper Error Handling; CWE-209",
+        "cvss": {},
+    },
+    "wapiti-full-path": {
+        "cwe": "CWE-200",
+        "descripcion": (
+            "Se detectó divulgación de la ruta absoluta de la aplicación en el servidor, "
+            "información que facilita otros ataques (p. ej. LFI o traversal)."),
+        "recomendacion": (
+            "Evitar exponer rutas del sistema en mensajes de error o respuestas; configurar el "
+            "manejo de errores para no revelar detalles internos."),
+        "mas_info": "OWASP – Information Leakage; CWE-200",
+        "cvss": {},
+    },
 }
 
 
@@ -238,6 +479,11 @@ def tipo_de(dedup_key: str) -> str | None:
         return "tls-weak-cipher"
     if k.startswith("cookie-flags:"):
         return "cookie-flags"
+    if k.startswith("wapiti:"):
+        # wapiti:<slug>:<path>:<param> → ficha "wapiti-<slug>" si existe.
+        slug = k.split(":", 2)[1] if k.count(":") >= 1 else ""
+        tipo = f"wapiti-{slug}"
+        return tipo if tipo in CATALOG else None
     return None
 
 
