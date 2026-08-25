@@ -21,6 +21,7 @@ class ScanCreate(BaseModel):
     analysis_type: AnalysisType = AnalysisType.biec
     authorized: bool
     note: str | None = None
+    folder_id: int | None = None  # F10: carpeta opcional al crear
 
     @field_validator("project_name", "target", "responsible_user")
     @classmethod
@@ -82,12 +83,61 @@ class AuthorizationRead(BaseModel):
     created_at: datetime
 
 
+class FolderCreate(BaseModel):
+    """Alta/edición de carpeta. El nombre es la identidad: único y no vacío."""
+
+    nombre: str
+    descripcion: str | None = None
+
+    @field_validator("nombre")
+    @classmethod
+    def nombre_valido(cls, v: str) -> str:
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("El nombre de la carpeta no puede estar vacío.")
+        if len(v) > 120:
+            raise ValueError("El nombre no puede superar los 120 caracteres.")
+        return v
+
+
+class FolderUpdate(BaseModel):
+    nombre: str | None = None
+    descripcion: str | None = None
+
+    @field_validator("nombre")
+    @classmethod
+    def nombre_valido(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip()
+        if not v:
+            raise ValueError("El nombre de la carpeta no puede estar vacío.")
+        return v
+
+
+class FolderRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    nombre: str
+    descripcion: str | None = None
+    created_at: datetime
+    scans: int = 0  # cantidad de análisis dentro (lo calcula el router)
+
+
+class ScanMove(BaseModel):
+    """Mover un scan a una carpeta. `folder_id=None` lo saca de toda carpeta."""
+
+    folder_id: int | None = None
+
+
 class ScanRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     target: str
     cliente: str | None = None
+    folder_id: int | None = None
     analysis_type: AnalysisType
     status: ScanStatus
     created_at: datetime
@@ -102,6 +152,8 @@ class ScanHistoryRow(BaseModel):
     id: int
     target: str
     cliente: str | None = None
+    folder_id: int | None = None
+    folder_nombre: str | None = None
     status: ScanStatus
     created_at: datetime
     finished_at: datetime | None = None

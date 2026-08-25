@@ -72,6 +72,26 @@ class Authorization(Base):
     scans: Mapped[list["Scan"]] = relationship(back_populates="authorization")
 
 
+class Folder(Base):
+    """Carpeta para agrupar scans (F10). Nombre único, sin anidamiento.
+
+    Los scans sin carpeta son válidos (`folder_id` nullable): existían antes
+    de esta migración y siguen apareciendo bajo "Sin carpeta". Una carpeta
+    con scans no se puede borrar: el borrado no debe arrastrar análisis por
+    accidente."""
+
+    __tablename__ = "folders"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(120), nullable=False, unique=True, index=True)
+    descripcion: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    scans: Mapped[list["Scan"]] = relationship(back_populates="folder")
+
+
 class Scan(Base):
     __tablename__ = "scans"
 
@@ -95,6 +115,13 @@ class Scan(Base):
         ForeignKey("authorizations.id"), nullable=False
     )
 
+    # F10: carpeta opcional. Sin carpeta = scans previos a la migración y los
+    # que se creen sin elegir una. ondelete no hace falta: el endpoint impide
+    # borrar carpetas que tengan scans.
+    folder_id: Mapped[int | None] = mapped_column(
+        ForeignKey("folders.id"), nullable=True, index=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -109,6 +136,7 @@ class Scan(Base):
     )
 
     project: Mapped["Project"] = relationship(back_populates="scans")
+    folder: Mapped["Folder | None"] = relationship(back_populates="scans")
     authorization: Mapped["Authorization"] = relationship(back_populates="scans")
     stages: Mapped[list["ScanStage"]] = relationship(
         back_populates="scan",

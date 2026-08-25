@@ -10,7 +10,7 @@ from app.config import settings
 from app.db import SessionLocal, check_database
 from app.deps import require_auth
 from app import sessions as sessions_mod
-from app.routers import auth, meta, scans, users
+from app.routers import auth, folders, meta, scans, users
 
 logger = logging.getLogger("vectus.startup")
 
@@ -54,6 +54,7 @@ app.add_middleware(
 # auth y /health quedan siempre públicos.
 app.include_router(meta.router, dependencies=[Depends(require_auth)])
 app.include_router(scans.router, dependencies=[Depends(require_auth)])
+app.include_router(folders.router, dependencies=[Depends(require_auth)])
 app.include_router(auth.router)
 app.include_router(users.router)
 

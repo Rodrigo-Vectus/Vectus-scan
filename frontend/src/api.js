@@ -47,6 +47,8 @@ export const getProgress = (id) => req(`/scans/${id}/progress`);
 export const getFindings = (id) => req(`/scans/${id}/findings`);
 export const analyzeScan = (id) =>
   req(`/scans/${id}/analyze`, { method: "POST" });
+// Elimina el análisis del historial (hallazgos + evidencia). Solo admin.
+export const deleteScan = (id) => req(`/scans/${id}`, { method: "DELETE" });
 export const reportUrl = (id) => `${BASE}/scans/${id}/report.docx`;
 
 // WebSocket de progreso en vivo (F2b). Cada mensaje es un "aviso" de cambio;
@@ -88,3 +90,13 @@ export const getAuthEvents = (params = {}) => {
   const qs = q.toString();
   return req(`/auth/events${qs ? `?${qs}` : ""}`);
 };
+
+// ─── Carpetas (F10) ──────────────────────────────────────────────────
+export const listFolders = () => req("/folders");
+export const createFolder = (body) =>
+  req("/folders", { method: "POST", body: JSON.stringify(body) });
+export const updateFolder = (id, body) =>
+  req(`/folders/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+export const deleteFolder = (id) => req(`/folders/${id}`, { method: "DELETE" });
+export const moveScan = (id, folder_id) =>
+  req(`/scans/${id}/folder`, { method: "PATCH", body: JSON.stringify({ folder_id }) });

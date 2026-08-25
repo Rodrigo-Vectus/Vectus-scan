@@ -1,18 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.biec import ESTIMATED_TOTAL_SECONDS, STAGES
-from app import report as report_mod
+from app import audit, report as report_mod
 from app.celery_client import celery_client
 from app.db import get_db
+from app.deps import get_client_ip, require_admin
 from app.models import (
     Authorization,
     Finding,
+    Folder,
     Project,
     Scan,
     ScanStage,
     ScanStatus,
+    User,
     STAGE_PENDIENTE,
     EST_CONFIRMADO,
     EST_POSITIVO,
@@ -30,11 +35,19 @@ from app.schemas import (
     FindingsResponse,
     ScanCreate,
     ScanProgress,
+    ScanMove,
     ScanRead,
     SeveritySummary,
 )
 
 router = APIRouter(prefix="/scans", tags=["scans"])
+
+logger = logging.getLogger(__name__)
+
+# Tipo de evento de auditoría para el borrado de un análisis. Entra en el
+# VARCHAR(20) de auth_events, así que no requiere migración. La vista de
+# "Accesos recientes" filtra login/logout, así que no la ensucia.
+AUDIT_SCAN_DELETED = "scan_deleted"
 
 
 @router.post("", response_model=ScanRead, status_code=status.HTTP_201_CREATED)
@@ -56,12 +69,16 @@ def create_scan(payload: ScanCreate, db: Session = Depends(get_db)):
     db.add(authorization)
     db.flush()  # asigna ids sin cerrar la transacción
 
+    if payload.folder_id is not None and db.get(Folder, payload.folder_id) is None:
+        raise HTTPException(status_code=404, detail="La carpeta indicada no existe.")
+
     scan = Scan(
         target=payload.target,
         cliente=payload.client,
         analysis_type=payload.analysis_type,
         project_id=project.id,
         authorization_id=authorization.id,
+        folder_id=payload.folder_id,
     )
     db.add(scan)
     db.commit()
@@ -106,6 +123,9 @@ def dashboard(db: Session = Depends(get_db)):
             c[sev_field[sev]] += n
             c["vulnerabilidades"] += n
 
+    # Nombre de cada carpeta, para no resolver la relación scan por scan.
+    nombres_carpeta = dict(db.execute(select(Folder.id, Folder.nombre)).all())
+
     history: list[ScanHistoryRow] = []
     tot = {"critica": 0, "alta": 0, "media": 0, "baja": 0, "total": 0}
     st = {"completado": 0, "en_curso": 0, "error": 0}
@@ -114,6 +134,8 @@ def dashboard(db: Session = Depends(get_db)):
         history.append(
             ScanHistoryRow(
                 id=s.id, target=s.target, cliente=s.cliente, status=s.status,
+                folder_id=s.folder_id,
+                folder_nombre=nombres_carpeta.get(s.folder_id),
                 created_at=s.created_at, finished_at=s.finished_at,
                 critica=c.get("critica", 0), alta=c.get("alta", 0),
                 media=c.get("media", 0), baja=c.get("baja", 0),
@@ -148,6 +170,84 @@ def get_scan(scan_id: int, db: Session = Depends(get_db)):
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan no encontrado")
     return scan
+
+
+@router.patch("/{scan_id}/folder", response_model=ScanRead)
+def move_scan(scan_id: int, payload: ScanMove, db: Session = Depends(get_db)):
+    """Mueve un análisis a una carpeta, o lo saca de toda carpeta con null.
+
+    No requiere rol admin: mover no destruye nada y es organización del
+    trabajo diario. Se permite con el scan en cualquier estado: la carpeta no
+    interviene en la ejecución.
+    """
+    scan = db.get(Scan, scan_id)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="Scan no encontrado")
+
+    if payload.folder_id is not None and db.get(Folder, payload.folder_id) is None:
+        raise HTTPException(status_code=404, detail="La carpeta indicada no existe.")
+
+    scan.folder_id = payload.folder_id
+    db.commit()
+    db.refresh(scan)
+    return scan
+
+
+@router.delete("/{scan_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_scan(
+    scan_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Elimina un análisis del historial. Solo administradores.
+
+    Borra el scan y, por cascada del ORM, sus etapas, ejecuciones de
+    herramienta y hallazgos. La evidencia cruda vive en el volumen del
+    worker (el backend no lo monta), así que su borrado se delega a una
+    tarea de Celery.
+
+    NO se borran `Project` ni `Authorization`: la autorización es el
+    registro del principio rector ("contaba con permiso para escanear este
+    activo") y se conserva como rastro aunque el análisis ya no esté.
+
+    No se permite borrar un análisis en curso: el worker seguiría
+    escribiendo sobre filas y directorios que acaban de desaparecer.
+    """
+    scan = db.get(Scan, scan_id)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="Scan no encontrado")
+
+    if scan.status in (ScanStatus.en_cola, ScanStatus.corriendo):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El análisis está en curso; esperá a que termine para eliminarlo.",
+        )
+
+    detalle = f"#{scan_id} · {scan.target or ''}"[:300]
+    audit.record_event(
+        db,
+        email=admin.email,
+        kind=AUDIT_SCAN_DELETED,
+        ip=get_client_ip(request),
+        detail=detalle,
+    )
+
+    db.delete(scan)  # cascada: stages → tool_runs, findings
+    db.commit()
+
+    # El raw vive en el volumen del worker. Si el worker está caído, el
+    # borrado del disco queda pendiente pero el análisis ya salió del
+    # historial: no se rompe la operación por eso.
+    try:
+        celery_client.send_task("worker.tasks.delete_scan_data", args=[scan_id])
+    except Exception:  # pragma: no cover - depende de Redis
+        logger.warning(
+            "Scan %s borrado de la base, pero no se pudo encolar el borrado "
+            "de la evidencia cruda.", scan_id
+        )
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/{scan_id}/launch", response_model=ScanProgress)

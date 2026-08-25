@@ -211,6 +211,82 @@ CATALOG = {
     # ── Vulnerabilidades de aplicación detectadas por wapiti (F8d) ──
     # `cvss: {}` deja el desglose por defecto según la severidad del hallazgo
     # (que la fija wapiti), manteniendo la tabla CVSS consistente con la severidad.
+    # ── Librerías JS de cliente (dedup_key lib:*), confirmadas por OSV ──
+    "js-library": {
+        "cwe": "CWE-1395",
+        "descripcion": (
+            "La aplicación sirve al navegador del usuario una librería JavaScript de terceros en una "
+            "versión con vulnerabilidades públicas conocidas. A diferencia del software del servidor, "
+            "el código que se entrega al cliente es visible y su número de versión es verificable: no "
+            "existe la posibilidad de que la distribución haya aplicado un parche manteniendo el "
+            "número (backport), por lo que la versión observada confirma la exposición. La "
+            "vulnerabilidad se ejecuta en el navegador de cada visitante, de modo que el impacto "
+            "recae sobre los usuarios de la aplicación —típicamente ejecución de código en su sesión "
+            "(XSS), manipulación del contenido mostrado o robo de datos del lado del cliente— y no "
+            "sobre la infraestructura. Su explotación no requiere acceso previo ni credenciales."),
+        "recomendacion": (
+            "Actualizar la librería a una versión corregida y verificar que el archivo servido en "
+            "producción sea efectivamente el nuevo (es habitual que quede una copia cacheada en el "
+            "CDN o en el build). Si la actualización mayor implica cambios que rompen la aplicación, "
+            "evaluar una versión de mantenimiento de la misma rama. Como práctica sostenida, "
+            "incorporar al pipeline una verificación automática de dependencias del front-end para "
+            "que este control no dependa de una auditoría puntual."),
+        "mas_info": "OSV.dev – base de vulnerabilidades de código abierto; OWASP – Vulnerable and Outdated Components",
+        "cvss": {},
+    },
+    # ── WordPress: plugins, temas y core (dedup_key wpscan:*) ──
+    "wpscan-plugin": {
+        "cwe": "CWE-1395",
+        "descripcion": (
+            "Se detectó en el sitio WordPress un plugin con vulnerabilidades registradas en la base "
+            "pública de WPScan. Los plugins ejecutan código en el servidor con los mismos privilegios "
+            "que el propio WordPress, por lo que una vulnerabilidad en uno de ellos puede comprometer "
+            "el sitio completo, incluidos su base de datos y los archivos alojados. Los plugins son "
+            "históricamente el vector de intrusión más frecuente en instalaciones de WordPress, muy "
+            "por encima del núcleo. Es importante señalar el alcance de esta detección: WPScan "
+            "identifica el plugin y lista las vulnerabilidades conocidas del componente, sin ejecutar "
+            "prueba alguna contra el sitio; la aplicabilidad real depende de la versión instalada y "
+            "de la configuración."),
+        "recomendacion": (
+            "Actualizar el plugin a la versión corregida indicada. Si el plugin ya no recibe "
+            "mantenimiento del autor, reemplazarlo por una alternativa activa o retirarlo. Conviene "
+            "además desinstalar —no solo desactivar— los plugins que no estén en uso: un plugin "
+            "desactivado sigue presente en el disco y puede seguir siendo alcanzable."),
+        "mas_info": "WPScan – WordPress Vulnerability Database; WordPress – Hardening WordPress",
+        "cvss": {},
+    },
+    "wpscan-theme": {
+        "cwe": "CWE-1395",
+        "descripcion": (
+            "Se detectó un tema de WordPress con vulnerabilidades registradas en la base pública de "
+            "WPScan. Los temas incluyen código PHP que se ejecuta en el servidor, de modo que una "
+            "vulnerabilidad en el tema activo tiene el mismo alcance potencial que una del núcleo. "
+            "Los temas instalados pero no activos también permanecen accesibles en el sistema de "
+            "archivos y pueden ser alcanzables. La detección identifica el componente y sus "
+            "vulnerabilidades conocidas; no se ejecutó ninguna prueba de explotación contra el sitio."),
+        "recomendacion": (
+            "Actualizar el tema a la versión corregida. Eliminar los temas que no se usen, incluidos "
+            "los que vienen por defecto con la instalación. Si el tema fue modificado a mano, migrar "
+            "esas modificaciones a un tema hijo para que actualizar deje de implicar perder cambios."),
+        "mas_info": "WPScan – WordPress Vulnerability Database; WordPress – Theme Handbook",
+        "cvss": {},
+    },
+    "wpscan-core": {
+        "cwe": "CWE-1395",
+        "descripcion": (
+            "La versión del núcleo de WordPress identificada en el sitio tiene vulnerabilidades "
+            "públicas conocidas. El núcleo es la base sobre la que corren todos los plugins y temas, "
+            "por lo que una vulnerabilidad a este nivel afecta al sitio entero. WordPress publica "
+            "versiones de seguridad con detalle público de lo corregido, lo que reduce "
+            "significativamente el esfuerzo necesario para atacar instalaciones desactualizadas una "
+            "vez publicado el parche."),
+        "recomendacion": (
+            "Actualizar el núcleo a la última versión estable y dejar habilitadas las actualizaciones "
+            "automáticas de seguridad de rama menor. Antes de actualizar, verificar la compatibilidad "
+            "de los plugins críticos y contar con una copia de seguridad restaurable."),
+        "mas_info": "WordPress – Security Releases; WPScan – WordPress Vulnerability Database",
+        "cvss": {},
+    },
     "wapiti-sqli": {
         "cwe": "CWE-89",
         "descripcion": (
@@ -451,8 +527,11 @@ CATALOG = {
 }
 
 
-def tipo_de(dedup_key: str) -> str | None:
-    """Mapea la clave de de-dup del hallazgo a un tipo del catálogo."""
+def tipo_de(dedup_key: str, titulo: str | None = None) -> str | None:
+    """Mapea la clave de de-dup del hallazgo a un tipo del catálogo.
+
+    `titulo` es opcional y solo se usa donde la clave no alcanza para
+    distinguir el tipo (hallazgos de WPScan)."""
     k = dedup_key or ""
     if k.startswith("header-missing:"):
         name = k.split(":", 1)[1]
@@ -479,6 +558,19 @@ def tipo_de(dedup_key: str) -> str | None:
         return "tls-weak-cipher"
     if k.startswith("cookie-flags:"):
         return "cookie-flags"
+    if k.startswith("lib:"):
+        return "js-library"
+    if k.startswith("wpscan:"):
+        # El dedup_key es wpscan:<nombre-del-componente>:<cve>, así que el
+        # tipo (plugin / tema / núcleo) hay que leerlo del título, que el
+        # parser emite como "Plugin vulnerable: …" / "Tema vulnerable: …" /
+        # "Núcleo de WordPress vulnerable: …".
+        t = (titulo or "").lower()
+        if t.startswith("tema"):
+            return "wpscan-theme"
+        if t.startswith("núcleo") or t.startswith("nucleo"):
+            return "wpscan-core"
+        return "wpscan-plugin"
     if k.startswith("wapiti:"):
         # wapiti:<slug>:<path>:<param> → ficha "wapiti-<slug>" si existe.
         slug = k.split(":", 2)[1] if k.count(":") >= 1 else ""
@@ -487,25 +579,98 @@ def tipo_de(dedup_key: str) -> str | None:
     return None
 
 
+
+# ─── composición de la descripción del informe ───────────────────────
+# La ficha explica QUÉ es el hallazgo y por qué importa (texto curado); los
+# datos del propio hallazgo dicen QUÉ se observó en ESTE objetivo. Antes se
+# usaba una cosa o la otra; ahora se combinan en un desglose para que la
+# descripción del .docx tenga contexto además del dato técnico.
+
+_HERRAMIENTA_ES = {
+    "nmap": "nmap (escaneo de puertos y servicios)",
+    "whatweb": "whatweb (identificación de tecnologías)",
+    "nuclei": "nuclei (plantillas de detección de vulnerabilidades)",
+    "nikto": "nikto (revisión de servidor web)",
+    "ffuf": "ffuf (descubrimiento de contenido)",
+    "curl": "curl (análisis de cabeceras HTTP)",
+    "wapiti": "wapiti (pruebas activas de detección sobre la aplicación)",
+    "wpscan": "WPScan (enumeración de WordPress)",
+    "retire.js": "retire.js (firmas de librerías JavaScript)",
+    "subfinder": "subfinder (enumeración pasiva de subdominios)",
+    "osv": "OSV.dev (base pública de vulnerabilidades)",
+}
+
+
+def _herramientas_es(origen: str) -> str:
+    """'retire.js, whatweb' → texto legible para el informe."""
+    partes = [h.strip() for h in (origen or "").split(",") if h.strip()]
+    if not partes:
+        return ""
+    return "; ".join(_HERRAMIENTA_ES.get(h.lower(), h) for h in partes)
+
+
+def descripcion_bloques(vuln: dict, ficha: dict | None) -> list[str]:
+    """Desglose de la descripción, como lista de párrafos.
+
+    Orden: qué es y por qué importa → qué se observó en este objetivo →
+    dónde → cómo se detectó. Se omite todo bloque sin contenido real: no se
+    inventa nada para rellenar (regla de oro)."""
+    bloques: list[str] = []
+
+    base = ficha["descripcion"] if ficha else ""
+    if base:
+        bloques.append(base)
+
+    evidencia = (vuln.get("evidencia") or "").strip()
+    if evidencia:
+        # Sin ficha, la evidencia ES la descripción: no se la rotula como
+        # hallazgo observado para no dejar el bloque huérfano.
+        bloques.append(f"Hallazgo observado: {evidencia}" if base else evidencia)
+    elif not base:
+        bloques.append(vuln.get("titulo") or "—")
+
+    # No se repiten acá el sistema afectado, los CVE ni las ocurrencias: la
+    # plantilla ya tiene campos propios para los dos primeros y la tabla CVSS
+    # muestra el tercero. Duplicarlos alargaba la ficha sin agregar nada.
+
+    herramientas = _herramientas_es(vuln.get("herramienta_origen", ""))
+    if herramientas:
+        bloques.append(
+            f"Detectado con: {herramientas}. "
+            "El barrido no ejecuta explotación: la detección no implica que la "
+            "vulnerabilidad haya sido aprovechada contra el objetivo."
+        )
+
+    return bloques
+
+
 def enrich(vuln: dict) -> dict:
     """Devuelve el vuln enriquecido con descripción, desglose CVSS, recomendación,
     referencias y línea de CVE/CWE. `vuln` trae los campos del Finding."""
-    ficha = CATALOG.get(tipo_de(vuln.get("dedup_key", "")))
+    ficha = CATALOG.get(tipo_de(vuln.get("dedup_key", ""), vuln.get("titulo")))
     sev = vuln.get("severidad", "info")
     breakdown = dict(_DEFAULT_CVSS.get(sev, _DEFAULT_CVSS["info"]))
 
     if ficha:
         breakdown.update(ficha["cvss"])
-        descripcion = ficha["descripcion"]
-        recomendacion = ficha["recomendacion"]
-        mas_info = ficha["mas_info"]
-        cwe = ficha["cwe"]
+        # La recomendación del propio hallazgo es específica (trae versión de
+        # corrección, parámetro afectado, etc.); la de la ficha es genérica.
+        # Se prefiere la específica cuando existe y se completa con la ficha.
+        propia = (vuln.get("recomendacion") or "").strip()
+        generica = ficha["recomendacion"]
+        if propia and propia not in ("—", "(genérica del parser)"):
+            recomendacion = f"{propia} {generica}" if generica else propia
+        else:
+            recomendacion = generica
+        mas_info = vuln.get("mas_info") or ficha["mas_info"]
+        cwe = vuln.get("cwe") or ficha["cwe"]
     else:
-        # sin ficha (p. ej. nuclei): usar los datos del propio hallazgo
-        descripcion = vuln.get("evidencia") or vuln.get("titulo") or "—"
         recomendacion = vuln.get("recomendacion") or "—"
         mas_info = vuln.get("mas_info") or "—"
         cwe = vuln.get("cwe")
+
+    bloques = descripcion_bloques(vuln, ficha)
+    descripcion = "\n".join(bloques)
 
     # el CVSS numérico del hallazgo (nuclei) tiene prioridad si existe
     cvss = vuln.get("cvss") or breakdown["cvss"]
@@ -521,6 +686,7 @@ def enrich(vuln: dict) -> dict:
     out = dict(vuln)
     out.update(
         descripcion=descripcion,
+        descripcion_bloques=bloques,
         recomendacion=recomendacion,
         mas_info=mas_info,
         cwe=cwe,

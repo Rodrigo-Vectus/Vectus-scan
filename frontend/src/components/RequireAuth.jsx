@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth.jsx";
+import IdleLogout from "./IdleLogout.jsx";
 
 function Splash() {
   return (
@@ -15,7 +16,14 @@ export function RequireAuth() {
   const location = useLocation();
   if (loading) return <Splash />;
   if (!user) return <Navigate to="/login" replace state={{ from: location }} />;
-  return <Outlet />;
+  // El temporizador de inactividad vive acá: cubre todas las rutas con
+  // sesión y se desmonta solo al salir.
+  return (
+    <>
+      <IdleLogout />
+      <Outlet />
+    </>
+  );
 }
 
 /** Exige rol administrador. Logueado pero no admin → al inicio. */

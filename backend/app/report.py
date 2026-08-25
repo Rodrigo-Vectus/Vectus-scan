@@ -57,6 +57,27 @@ def _set_text(p, text):
         p.add_run(text)
 
 
+def _set_rich_text(p, bloques):
+    """Escribe varios párrafos dentro de un mismo `w:p`, separados por saltos
+    de línea. Se agregan al PRIMER run para heredar su formato (fuente,
+    tamaño, color de la plantilla); crear runs nuevos los perdería."""
+    lineas = [b for b in (bloques or []) if b]
+    if not lineas:
+        lineas = ["—"]
+    runs = list(p.runs)
+    if not runs:
+        p.add_run("")
+        runs = list(p.runs)
+    primero = runs[0]
+    primero.text = lineas[0]
+    for extra in lineas[1:]:
+        primero.add_break()
+        primero.add_break()
+        primero.add_text(extra)
+    for r in runs[1:]:
+        r.text = ""
+
+
 def _set_cell(cell, text):
     _set_text(cell.paragraphs[0], text)
     for extra in cell.paragraphs[1:]:
@@ -94,7 +115,11 @@ def _fill_finding_block(elements, idx, f):
             if "Vulnerabilidad encontrada" in t:
                 _set_text(p, f"#{idx}. {f['titulo']}")
             elif t.strip() == "Descripción detallada de la vulnerabilidad encontrada":
-                _set_text(p, f.get("descripcion") or "—")
+                _set_rich_text(
+                    p,
+                    f.get("descripcion_bloques")
+                    or [f.get("descripcion") or "—"],
+                )
             elif "AGREGAR IMAGEN" in t:
                 _set_text(p, "")
             elif "URLCOMPLETA" in t:
@@ -156,6 +181,7 @@ def build_context(target, cliente, ip, findings):
                 "ocurrencias": getattr(f, "ocurrencias", 1) or 1,
                 "sistema": f.sistema_afectado or "—",
                 "evidencia": f.evidencia or "",
+                "herramienta_origen": getattr(f, "herramienta_origen", "") or "",
                 "cve": f.cve or "No aplica",
                 "cwe": getattr(f, "cwe", None),
                 "recomendacion": f.recomendacion or "—",

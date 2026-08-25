@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { createScan, messagesFromError } from "../api.js";
+import { useFolders } from "../folders.jsx";
 
 const EMPTY = {
   project_name: "",
@@ -11,6 +12,11 @@ const EMPTY = {
 };
 
 export default function NewScan() {
+  const [params] = useSearchParams();
+  const { folders } = useFolders();
+  // Si se entró desde una carpeta ("nuevo análisis" estando dentro de ella),
+  // viene preseleccionada; igual se puede cambiar.
+  const [folderId, setFolderId] = useState(params.get("carpeta") || "");
   const [form, setForm] = useState(EMPTY);
   const [authorized, setAuthorized] = useState(false);
   const [errors, setErrors] = useState([]);
@@ -39,6 +45,7 @@ export default function NewScan() {
         analysis_type: "biec",
         authorized: true,
         note: form.note.trim() || null,
+        folder_id: folderId ? Number(folderId) : null,
       });
       navigate(`/scans/${scan.id}`);
     } catch (err) {
@@ -80,6 +87,23 @@ export default function NewScan() {
             onChange={set("client")}
             placeholder="ACME S.A."
           />
+        </div>
+
+        <div className="field">
+          <label htmlFor="folder">
+            Carpeta <span className="optional">opcional</span>
+          </label>
+          <select
+            id="folder"
+            value={folderId}
+            onChange={(e) => setFolderId(e.target.value)}
+          >
+            <option value="">Sin carpeta</option>
+            {(folders || []).map((f) => (
+              <option key={f.id} value={f.id}>{f.nombre}</option>
+            ))}
+          </select>
+          <p className="hint">Agrupa el análisis en el listado de informes.</p>
         </div>
 
         <div className="field">

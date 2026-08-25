@@ -1,16 +1,14 @@
 import { NavLink, Outlet, useLocation, useParams, useNavigate } from "react-router-dom";
 import { ScanLine, FileText, LayoutDashboard, Users, LogOut } from "lucide-react";
 import { useAuth } from "../auth.jsx";
+import logoVectus from "../assets/logo-vectus.png";
+import ThemeSwitch from "./ThemeSwitch.jsx";
+import SidebarFolders from "./SidebarFolders.jsx";
 
 function BrandMark() {
-  // Arcos concéntricos: eco del isotipo VECTUS, en cyan/teal.
-  return (
-    <svg className="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <path d="M4 28 A24 24 0 0 1 28 4" stroke="#22D3EE" strokeWidth="2.4" strokeLinecap="round" />
-      <path d="M4 28 A17 17 0 0 1 21 11" stroke="#2DD4BF" strokeWidth="2.4" strokeLinecap="round" opacity="0.85" />
-      <path d="M4 28 A10 10 0 0 1 14 18" stroke="#3B4A63" strokeWidth="2.4" strokeLinecap="round" />
-    </svg>
-  );
+  // Logo corporativo de Vectus. El isotipo provisional de arcos quedó
+  // archivado en `assets/brandmark-arcos-legacy.svg`.
+  return <img className="brand-logo" src={logoVectus} alt="Vectus" />;
 }
 
 const NAV = [
@@ -81,6 +79,7 @@ export default function Layout() {
               ))}
             </div>
           ))}
+          <SidebarFolders />
         </nav>
         {user && (
           <div className="sidebar-user">
@@ -99,6 +98,8 @@ export default function Layout() {
         <div className="topbar2">
           <Crumb />
           <div className="topbar2-right">
+            <ThemeSwitch />
+            <span className="topbar2-sep" />
             <span className="dot" />
             192.168.11.125
           </div>

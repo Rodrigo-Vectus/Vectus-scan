@@ -1,0 +1,12 @@
+<!--
+  Isotipo provisional de Vectus SCAN (arcos concéntricos), usado en la
+  barra lateral y en el login hasta F9c. Se reemplazó por el logo
+  corporativo real (assets/logo-vectus.png). Se conserva acá por si hace
+  falta volver atrás: era un SVG inline en `components/Layout.jsx` y en
+  `pages/Login.jsx`, dentro de la función `BrandMark`.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <path d="M4 28 A24 24 0 0 1 28 4" stroke="#22D3EE" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M4 28 A17 17 0 0 1 21 11" stroke="#2DD4BF" stroke-width="2.4" stroke-linecap="round" opacity="0.85"/>
+  <path d="M4 28 A10 10 0 0 1 14 18" stroke="#3B4A63" stroke-width="2.4" stroke-linecap="round"/>
+</svg>

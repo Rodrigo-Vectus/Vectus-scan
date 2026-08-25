@@ -2,15 +2,13 @@ import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { requestCode, verifyCode, messagesFromError } from "../api.js";
 import { useAuth } from "../auth.jsx";
+import logoVectus from "../assets/logo-vectus.png";
+import ThemeSwitch from "../components/ThemeSwitch.jsx";
 
 function BrandMark() {
-  return (
-    <svg className="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <path d="M4 28 A24 24 0 0 1 28 4" stroke="#22D3EE" strokeWidth="2.4" strokeLinecap="round" />
-      <path d="M4 28 A17 17 0 0 1 21 11" stroke="#2DD4BF" strokeWidth="2.4" strokeLinecap="round" opacity="0.85" />
-      <path d="M4 28 A10 10 0 0 1 14 18" stroke="#3B4A63" strokeWidth="2.4" strokeLinecap="round" />
-    </svg>
-  );
+  // Logo corporativo de Vectus. El isotipo provisional de arcos quedó
+  // archivado en `assets/brandmark-arcos-legacy.svg`.
+  return <img className="brand-logo" src={logoVectus} alt="Vectus" />;
 }
 
 export default function Login() {
@@ -25,6 +23,8 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const dest = location.state?.from?.pathname || "/";
+  // Llega con state.idle cuando el temporizador cerró la sesión sola.
+  const porInactividad = location.state?.idle === true;
 
   const sendCode = async () => {
     if (!email.trim() || busy) return;
@@ -71,6 +71,11 @@ export default function Login() {
 
   return (
     <div className="login-screen">
+      {/* El selector de tema vive fuera del Layout, así que en el login hay
+          que montarlo aparte. Comparte el mismo estado y persistencia. */}
+      <div className="login-theme">
+        <ThemeSwitch />
+      </div>
       <div className="login-card">
         <div className="login-brand">
           <BrandMark />
@@ -89,6 +94,11 @@ export default function Login() {
             : `Enviado a ${email}. Vence en 10 minutos.`}
         </p>
 
+        {porInactividad && !info && (
+          <div className="login-info">
+            Cerramos tu sesión por inactividad. Ingresá de nuevo.
+          </div>
+        )}
         {info && <div className="login-info">{info}</div>}
         {errors.length > 0 && (
           <div className="form-errors" role="alert">
