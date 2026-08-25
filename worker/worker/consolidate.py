@@ -21,6 +21,7 @@ from worker.parsers import (
     retirejs,
     wapiti,
     whatweb,
+    wpscan,
 )
 from worker.target import parse_target
 
@@ -39,6 +40,7 @@ _PARSERS = {
     "dig.txt": context.parse_dig,
     "retirejs.json": retirejs.parse,
     "wapiti.json": wapiti.parse,
+    "wpscan.json": wpscan.parse,
 }
 
 _EST_RANK = {"confirmado": 0, "a_validar": 1, "positivo": 2, "falso_positivo": 3}

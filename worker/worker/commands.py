@@ -187,6 +187,27 @@ def _aplicacion(tgt: Target, out_dir: str) -> list[ToolSpec]:
     ]
 
 
+def _cms(tgt: Target, out_dir: str) -> list[ToolSpec]:
+    # Análisis de CMS (F8e). WPScan enumera core/plugins/temas de WordPress y
+    # cruza versiones con la base de vulnerabilidades. El wrapper gatea por la
+    # detección de whatweb: si el sitio no es WordPress, no corre WPScan (no
+    # gasta tiempo ni cupo del token). Solo enumeración; sin fuerza bruta.
+    return [
+        ToolSpec(
+            "wpscan",
+            [
+                "python", "-m", "worker.tools.wpscan_run", tgt.url,
+                "-o", _p(out_dir, "wpscan.json"),
+                "--scan-dir", os.path.dirname(out_dir),
+                "--ua", USER_AGENT,
+            ],
+            _p(out_dir, "wpscan.json"),
+            False,
+            600,
+        ),
+    ]
+
+
 def _configuracion(tgt: Target, out_dir: str) -> list[ToolSpec]:
     return [
         ToolSpec(
@@ -215,6 +236,7 @@ _BUILDERS = {
     "descubrimiento": _descubrimiento,
     "vulnerabilidades": _vulnerabilidades,
     "aplicacion": _aplicacion,
+    "cms": _cms,
     "configuracion": _configuracion,
 }
 

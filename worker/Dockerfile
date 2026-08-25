@@ -56,6 +56,20 @@ RUN set -eux; mkdir -p /opt/retirejs; \
       "https://raw.githubusercontent.com/RetireJS/retire.js/master/repository/jsrepository.json" \
       || echo '{}' > /opt/retirejs/jsrepository.json
 
+# ── WPScan (F8e): enumerador de WordPress (core/plugins/temas + CVEs).
+# Es un gem de Ruby; requiere ruby-dev + toolchain de compilación para sus
+# dependencias nativas. Pesa, pero solo corre gateado por whatweb (WordPress).
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        ruby ruby-dev build-essential libcurl4-openssl-dev \
+        libxml2-dev libxslt1-dev zlib1g-dev pkg-config; \
+    gem install --no-document wpscan; \
+    wpscan --version; \
+    apt-get purge -y build-essential ruby-dev; \
+    apt-get autoremove -y; \
+    rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
