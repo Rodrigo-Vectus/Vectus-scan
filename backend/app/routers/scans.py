@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import func, select
@@ -35,6 +36,9 @@ from app.schemas import (
     FindingsResponse,
     ScanCreate,
     ScanProgress,
+    AnalyticsResponse,
+    AnalyticsTool,
+    AnalyticsTop,
     ScanMove,
     ScanRead,
     SeveritySummary,
@@ -44,10 +48,113 @@ router = APIRouter(prefix="/scans", tags=["scans"])
 
 logger = logging.getLogger(__name__)
 
+# Escala de severidad (D8), usada para ordenar hallazgos y para elegir la peor
+# severidad de un grupo en `analytics`.
+_SEV_ORDER = {SEV_CRITICA: 0, SEV_ALTA: 1, SEV_MEDIA: 2, SEV_BAJA: 3, SEV_INFO: 4}
+
 # Tipo de evento de auditoría para el borrado de un análisis. Entra en el
 # VARCHAR(20) de auth_events, así que no requiere migración. La vista de
 # "Accesos recientes" filtra login/logout, así que no la ensucia.
 AUDIT_SCAN_DELETED = "scan_deleted"
+
+
+@router.get("/analytics", response_model=AnalyticsResponse)
+def analytics(
+    dias: int | None = None,
+    folder_id: int | None = None,
+    db: Session = Depends(get_db),
+):
+    """Agregados a nivel hallazgo para el dashboard.
+
+    Filtros opcionales: `dias` (ventana hacia atrás desde hoy, sobre la fecha
+    de creación del scan) y `folder_id` (carpeta). Se aplican del lado del
+    servidor para que los números del dashboard coincidan con los filtros de
+    la interfaz.
+
+    Criterio de severidad: igual que el informe. Solo cuentan como
+    vulnerabilidad los `confirmado` de severidad crítica/alta/media/baja; los
+    `a_validar` se cuentan aparte y `positivo`/`falso_positivo` no suman.
+    """
+    q = db.query(Finding).join(Scan, Finding.scan_id == Scan.id)
+
+    if dias:
+        desde = datetime.now(timezone.utc) - timedelta(days=dias)
+        q = q.filter(Scan.created_at >= desde)
+    if folder_id is not None:
+        q = q.filter(Scan.folder_id == folder_id)
+
+    filas = q.with_entities(
+        Finding.herramienta_origen,
+        Finding.severidad,
+        Finding.estado,
+        Finding.titulo,
+        Finding.scan_id,
+        Finding.ocurrencias,
+    ).all()
+
+    sev_validas = {SEV_CRITICA, SEV_ALTA, SEV_MEDIA, SEV_BAJA}
+
+    # ── por herramienta ──────────────────────────────────────────────
+    # `herramienta_origen` puede venir unida ("retire.js, whatweb") cuando el
+    # hallazgo se fusionó en la de-duplicación: se cuenta para cada una.
+    por_tool: dict[str, dict] = {}
+    por_estado: dict[str, int] = {}
+
+    for herr, sev, estado, _tit, _sid, _occ in filas:
+        por_estado[estado] = por_estado.get(estado, 0) + 1
+        for nombre in [h.strip() for h in (herr or "").split(",") if h.strip()]:
+            d = por_tool.setdefault(
+                nombre,
+                {"critica": 0, "alta": 0, "media": 0, "baja": 0, "a_validar": 0, "total": 0},
+            )
+            if estado == EST_A_VALIDAR:
+                d["a_validar"] += 1
+                d["total"] += 1
+            elif estado == EST_CONFIRMADO and sev in sev_validas:
+                d[sev] += 1
+                d["total"] += 1
+
+    herramientas = [
+        AnalyticsTool(herramienta=n, **v)
+        for n, v in por_tool.items()
+        if v["total"] > 0
+    ]
+    herramientas.sort(key=lambda t: -t.total)
+
+    # ── hallazgos más frecuentes ─────────────────────────────────────
+    # Se agrupa por título: es lo que ve el usuario, y tras la de-duplicación
+    # un mismo hecho comparte título entre scans distintos.
+    top: dict[str, dict] = {}
+    for _herr, sev, estado, titulo, sid, occ in filas:
+        if estado not in (EST_CONFIRMADO, EST_A_VALIDAR):
+            continue
+        if estado == EST_CONFIRMADO and sev not in sev_validas:
+            continue
+        d = top.setdefault(
+            titulo, {"sev": sev, "estado": estado, "scans": set(), "occ": 0}
+        )
+        d["scans"].add(sid)
+        d["occ"] += occ or 1
+        if _SEV_ORDER.get(sev, 9) < _SEV_ORDER.get(d["sev"], 9):
+            d["sev"] = sev
+            d["estado"] = estado
+
+    tops = [
+        AnalyticsTop(
+            titulo=t, severidad=d["sev"], estado=d["estado"],
+            scans=len(d["scans"]), ocurrencias=d["occ"],
+        )
+        for t, d in top.items()
+    ]
+    # Primero por cantidad de análisis afectados, después por gravedad.
+    tops.sort(key=lambda x: (-x.scans, _SEV_ORDER.get(x.severidad, 9), -x.ocurrencias))
+
+    return AnalyticsResponse(
+        por_herramienta=herramientas[:12],
+        top_hallazgos=tops[:12],
+        por_estado=por_estado,
+        total_findings=len(filas),
+    )
 
 
 @router.post("", response_model=ScanRead, status_code=status.HTTP_201_CREATED)
@@ -170,6 +277,56 @@ def get_scan(scan_id: int, db: Session = Depends(get_db)):
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan no encontrado")
     return scan
+
+
+@router.post("/{scan_id}/relaunch", response_model=ScanRead,
+             status_code=status.HTTP_201_CREATED)
+def relaunch_scan(scan_id: int, db: Session = Depends(get_db)):
+    """Vuelve a ejecutar el barrido sobre el mismo objetivo (F11).
+
+    Crea un análisis **nuevo** —el original se conserva, para poder comparar
+    antes y después de una remediación— que hereda objetivo, cliente, proyecto
+    y carpeta.
+
+    Sobre la autorización: el scan nuevo **apunta a la misma autorización**
+    que el original, no a una copia con fecha de hoy. Duplicarla simularía un
+    consentimiento que nadie volvió a dar; reutilizarla deja el registro
+    diciendo la verdad ("este barrido corrió al amparo de la autorización
+    otorgada el día X"). Igual se re-verifica que siga confirmada, y `launch`
+    la vuelve a verificar antes de encolar: la barrera del principio rector no
+    se saltea.
+    """
+    origen = db.get(Scan, scan_id)
+    if origen is None:
+        raise HTTPException(status_code=404, detail="Scan no encontrado")
+
+    auth = db.get(Authorization, origen.authorization_id)
+    if auth is None or not auth.authorized:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "El análisis original no tiene una autorización confirmada "
+                "vigente. Creá un análisis nuevo con su autorización."
+            ),
+        )
+
+    nuevo = Scan(
+        target=origen.target,
+        cliente=origen.cliente,
+        analysis_type=origen.analysis_type,
+        project_id=origen.project_id,
+        authorization_id=origen.authorization_id,
+        folder_id=origen.folder_id,
+    )
+    db.add(nuevo)
+    db.commit()
+    db.refresh(nuevo)
+
+    # Se lanza con la misma función de siempre, que re-verifica la
+    # autorización server-side antes de encolar.
+    launch_scan(nuevo.id, db=db)
+    db.refresh(nuevo)
+    return nuevo
 
 
 @router.patch("/{scan_id}/folder", response_model=ScanRead)
@@ -332,7 +489,6 @@ _SEV_FIELD = {
     SEV_BAJA: "baja",
     SEV_INFO: "info",
 }
-_SEV_ORDER = {SEV_CRITICA: 0, SEV_ALTA: 1, SEV_MEDIA: 2, SEV_BAJA: 3, SEV_INFO: 4}
 
 
 @router.get("/{scan_id}/findings", response_model=FindingsResponse)

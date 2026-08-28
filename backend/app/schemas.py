@@ -165,6 +165,38 @@ class ScanHistoryRow(BaseModel):
     a_validar: int = 0
 
 
+class AnalyticsTool(BaseModel):
+    """Hallazgos agregados por herramienta de origen."""
+    herramienta: str
+    critica: int = 0
+    alta: int = 0
+    media: int = 0
+    baja: int = 0
+    a_validar: int = 0
+    total: int = 0
+
+
+class AnalyticsTop(BaseModel):
+    """Un tipo de hallazgo y en cuántos análisis apareció."""
+    titulo: str
+    severidad: str
+    estado: str
+    scans: int = 0
+    ocurrencias: int = 0
+
+
+class AnalyticsResponse(BaseModel):
+    """Agregados a nivel *hallazgo*, que el front no puede calcular solo.
+
+    Lo que se deriva de la lista de scans (tendencia, top de objetivos, corte
+    por carpeta) se calcula en el cliente para no multiplicar endpoints.
+    """
+    por_herramienta: list[AnalyticsTool] = []
+    top_hallazgos: list[AnalyticsTop] = []
+    por_estado: dict[str, int] = {}
+    total_findings: int = 0
+
+
 class DashboardResponse(BaseModel):
     total_scans: int
     completados: int

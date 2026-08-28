@@ -8,17 +8,23 @@
 
 :root {
   /* ── Paleta VECTUS SCAN (consola SOC, dark) ── */
-  --bg: #070B14;            /* base navy, casi negro */
-  --bg-2: #0A101C;          /* fondo de zonas */
-  --panel: #0C1322;         /* paneles / sidebar */
-  --panel-2: #0E1626;       /* panel elevado / hover */
-  --border: #17202F;        /* hairline */
-  --border-strong: #223047; /* borde marcado */
-  --text: #C7D2DE;          /* texto base */
-  --text-hi: #EAF2F8;       /* texto alto contraste */
-  --muted: #6B7A90;         /* texto atenuado */
+  --bg: #0A0F18;            /* base navy. Se levantó desde #070B14: un fondo
+                               casi negro con texto claro produce halación y
+                               cansa la vista en sesiones largas. */
+  --bg-2: #0E141F;          /* fondo de zonas */
+  --panel: #141C2A;         /* paneles / sidebar. Antes casi no se separaba
+                               del fondo (0.32 de diferencia de luminancia);
+                               ahora 0.67 y los paneles se leen como tales. */
+  --panel-2: #1B2434;       /* panel elevado / hover */
+  --border: #263246;        /* hairline */
+  --border-strong: #37475F; /* borde marcado */
+  --text: #D6DFE9;          /* texto base */
+  --text-hi: #F3F7FB;       /* texto alto contraste */
+  --muted: #94A3B8;         /* texto atenuado. Estaba en 4.25:1 sobre panel,
+                               por debajo de AA: las etiquetas mono chicas
+                               obligaban a forzar la vista. Ahora 6.66:1. */
 
-  --accent: #22D3EE;        /* cyan — acento principal */
+  --accent: #38DBF2;        /* cyan — acento principal */
   --accent-2: #2DD4BF;      /* teal — acento secundario */
   --teal: #2DD4BF;
 
@@ -27,7 +33,7 @@
   --sev-alta: #C2410C;
   --sev-media: #B45309;
   --sev-baja: #2DD4BF;      /* teal */
-  --sev-info: #64748B;      /* navy suave, legible sobre dark */
+  --sev-info: #7E8DA3;      /* navy suave, legible sobre dark */
 
   /* Compat con nombres previos usados en componentes */
   --green: #2DD4BF;
@@ -51,8 +57,8 @@
      · --danger-text: texto de los bloques de error de formulario.
      · --overlay: fondo del velo de los diálogos. */
   --accent-ink: #04141a;
-  --topbar-grad: #0b1017;
-  --topbar-bg: rgba(7, 11, 20, 0.82);
+  --topbar-grad: #0E141F;
+  --topbar-bg: rgba(10, 15, 24, 0.86);
   --danger-text: #ffb4ae;
   --overlay: rgba(3, 6, 12, 0.72);
   color-scheme: dark;
@@ -63,17 +69,18 @@
    ~1.7:1), así que acá se oscurece a un cyan profundo y el texto sobre el
    acento pasa a blanco mediante --accent-ink. */
 [data-theme="light"] {
-  --bg: #F5F7FA;
+  --bg: #ECF0F6;   /* más gris que antes: con #F5F7FA los paneles blancos
+                      casi no se distinguían del fondo. */
   --bg-2: #FFFFFF;
   --panel: #FFFFFF;
-  --panel-2: #EEF2F7;
-  --border: #DDE3EB;
-  --border-strong: #C3CCD8;
-  --text: #364152;
-  --text-hi: #111827;
-  --muted: #667487;
+  --panel-2: #F3F6FB;
+  --border: #D0D8E4;
+  --border-strong: #AEBACB;
+  --text: #2B3646;
+  --text-hi: #0D1520;
+  --muted: #54627A;  /* más oscuro: los grises se confundían con el blanco */
 
-  --accent: #0C6E86;
+  --accent: #0B6980;
   --accent-2: #0F766E;
   --teal: #0F766E;
 
@@ -91,7 +98,7 @@
 
   --accent-ink: #FFFFFF;
   --topbar-grad: #FFFFFF;
-  --topbar-bg: rgba(255, 255, 255, 0.88);
+  --topbar-bg: rgba(255, 255, 255, 0.90);
   --danger-text: #9F1239;
   --overlay: rgba(17, 24, 39, 0.45);
   color-scheme: light;
@@ -979,7 +986,7 @@ body { font-weight: 400; letter-spacing: -0.006em; }
 .chip.sev-critica { color: #fff; background: var(--sev-critica); border-color: var(--sev-critica); }
 .chip.sev-alta { color: #fff; background: var(--sev-alta); border-color: var(--sev-alta); }
 .chip.sev-media { color: #fff; background: var(--sev-media); border-color: var(--sev-media); }
-.chip.sev-baja { color: #fff; background: var(--sev-baja); border-color: var(--sev-baja); }
+.chip.sev-baja { color: var(--accent-ink); background: var(--sev-baja); border-color: var(--sev-baja); }
 .chip-validar { color: var(--sev-media); border-color: rgba(180,83,9,0.5); background: transparent; }
 .sev-none { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
 
@@ -1304,3 +1311,100 @@ body { font-weight: 400; letter-spacing: -0.006em; }
 .icon-btn:hover { color: var(--text-hi); border-color: var(--border-strong); }
 
 .field select { cursor: pointer; }
+
+.detail-aviso { margin: 10px 0 0; font-size: 13px; color: var(--sev-alta); }
+
+/* ══ Dashboard ═════════════════════════════════════════════════════
+   Tres elementos y nada más: cuánta exposición hay, qué objetivos están
+   peor y cómo evoluciona. Todo lo demás (cortes por herramienta, por
+   carpeta, rankings de tipos) se sacó a propósito: eran datos ciertos
+   pero que no cambian una decisión, y competían con lo que sí importa. */
+
+.dash-filtros { display: flex; align-items: center; gap: 12px; margin-bottom: 18px;
+  flex-wrap: wrap; }
+.segmented { display: inline-flex; padding: 2px; gap: 2px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 999px; }
+.segmented button { padding: 5px 14px; font-size: 12.5px; font-weight: 500;
+  background: none; border: none; border-radius: 999px; color: var(--muted);
+  cursor: pointer; transition: color 120ms ease, background 120ms ease; }
+.segmented button:hover { color: var(--text-hi); }
+.segmented button.active { color: var(--accent); background: var(--panel); }
+.dash-select { padding: 6px 11px; font-size: 13px; font-family: var(--font-sans);
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text-hi); cursor: pointer; }
+.dash-select:focus { outline: none; border-color: var(--accent); }
+
+/* Bloque principal */
+.hero { display: grid; grid-template-columns: 1fr 220px; gap: 28px;
+  padding: 26px 28px; margin-bottom: 14px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); }
+.hero-main { min-width: 0; }   /* deja que la barra se encoja en vez de desbordar */
+.hero-label { margin: 0; font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); }
+.hero-num { margin: 6px 0 18px; font-size: 60px; font-weight: 650; line-height: 1;
+  letter-spacing: -1.5px; color: var(--muted); }
+.hero-num.hay { color: var(--text-hi); }
+
+.segbar { display: flex; height: 10px; border-radius: 999px; overflow: hidden;
+  background: var(--panel-2); }
+.segbar span { display: block; height: 100%; }
+.segbar-vacia { background: var(--panel-2); }
+
+.hero-side { display: flex; flex-direction: column; justify-content: center; gap: 4px;
+  padding-left: 28px; border-left: 1px solid var(--border); }
+.hero-stat { display: flex; align-items: baseline; gap: 8px; padding: 6px 8px;
+  margin: 0 -8px; border-radius: var(--radius-sm); text-decoration: none;
+  transition: background 120ms ease; }
+a.hero-stat:hover { background: var(--panel-2); }
+.hero-stat-num { min-width: 34px; font-family: var(--font-mono); font-size: 19px;
+  font-weight: 500; color: var(--text-hi); }
+.hero-stat-num.activo { color: var(--accent); }
+.hero-stat-lbl { font-family: var(--font-mono); font-size: 10px; letter-spacing: 1.2px;
+  text-transform: uppercase; color: var(--muted); }
+
+/* Dos paneles */
+.dash-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 14px; }
+.panel-title { display: flex; align-items: center; justify-content: space-between; }
+.panel-link { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px;
+  font-weight: 400; color: var(--muted); text-decoration: none;
+  text-transform: none; letter-spacing: 0; }
+.panel-link:hover { color: var(--accent); }
+
+.chart-stack { margin-top: 10px; }
+.chart-svg { width: 100%; display: block; }
+.chart-xaxis { display: flex; margin-top: 7px; }
+.chart-xaxis span { text-align: center; font-family: var(--font-mono); font-size: 9.5px;
+  color: var(--muted); }
+
+.leyenda { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 13px; }
+.leyenda-item { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px;
+  color: var(--muted); }
+.leyenda-item i { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+.leyenda-item b { color: var(--text-hi); font-weight: 500; }
+
+.dash-table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+.dash-table td { padding: 10px 6px 10px 0; font-size: 12.5px; color: var(--text);
+  border-top: 1px solid var(--border); }
+.dash-table tbody tr:first-child td { border-top: none; }
+.dash-table tbody tr { cursor: pointer; }
+.dash-table tbody tr:hover td { color: var(--text-hi); }
+.dash-table .trunc { max-width: 260px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; }
+.col-sev { display: flex; gap: 4px; justify-content: flex-end; padding-right: 12px; }
+.col-fecha { width: 62px; text-align: right; color: var(--muted); font-size: 11.5px; }
+.dot-sev { display: inline-grid; place-items: center; min-width: 21px; height: 19px;
+  padding: 0 5px; border-radius: 5px; font-family: var(--font-mono); font-size: 11px;
+  color: #fff; }
+.dot-sev.sev-critica { background: var(--sev-critica); }
+.dot-sev.sev-alta { background: var(--sev-alta); }
+.dot-sev.sev-media { background: var(--sev-media); }
+.dot-sev.sev-baja { background: var(--sev-baja); color: var(--accent-ink); }
+
+@media (max-width: 1080px) {
+  .hero { grid-template-columns: 1fr; gap: 20px; }
+  .hero-side { flex-direction: row; gap: 24px; padding: 16px 0 0;
+    border-left: none; border-top: 1px solid var(--border); }
+  .dash-grid { grid-template-columns: 1fr; }
+}

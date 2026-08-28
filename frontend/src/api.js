@@ -49,6 +49,9 @@ export const analyzeScan = (id) =>
   req(`/scans/${id}/analyze`, { method: "POST" });
 // Elimina el análisis del historial (hallazgos + evidencia). Solo admin.
 export const deleteScan = (id) => req(`/scans/${id}`, { method: "DELETE" });
+// Relanza el barrido: crea un analisis nuevo sobre el mismo objetivo (F11).
+export const relaunchScan = (id) =>
+  req(`/scans/${id}/relaunch`, { method: "POST" });
 export const reportUrl = (id) => `${BASE}/scans/${id}/report.docx`;
 
 // WebSocket de progreso en vivo (F2b). Cada mensaje es un "aviso" de cambio;
@@ -92,6 +95,15 @@ export const getAuthEvents = (params = {}) => {
 };
 
 // ─── Carpetas (F10) ──────────────────────────────────────────────────
+// Agregados a nivel hallazgo para el dashboard (F12).
+export const getAnalytics = ({ dias, folder_id } = {}) => {
+  const q = new URLSearchParams();
+  if (dias) q.set("dias", dias);
+  if (folder_id) q.set("folder_id", folder_id);
+  const qs = q.toString();
+  return req(`/scans/analytics${qs ? `?${qs}` : ""}`);
+};
+
 export const listFolders = () => req("/folders");
 export const createFolder = (body) =>
   req("/folders", { method: "POST", body: JSON.stringify(body) });

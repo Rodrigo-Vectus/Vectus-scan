@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   getScan,
   getProgress,
   getFindings,
-  analyzeScan,
+  relaunchScan,
   reportUrl,
   launchScan,
   openProgressSocket,
@@ -194,6 +194,9 @@ export default function ScanDetail() {
   const [launching, setLaunching] = useState(false);
   const [findings, setFindings] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [aviso, setAviso] = useState(null);
+  const [findingsError, setFindingsError] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     getScan(id).then(setScan).catch((e) => setError(messagesFromError(e)[0]));
@@ -201,8 +204,19 @@ export default function ScanDetail() {
 
   const terminal = prog && (prog.status === "completado" || prog.status === "error");
 
-  const loadFindings = useCallback(() => {
-    getFindings(id).then(setFindings).catch(() => {});
+  const loadFindings = useCallback(async () => {
+    try {
+      const f = await getFindings(id);
+      setFindings(f);
+      setFindingsError(null);
+      return f;
+    } catch (err) {
+      // El error se muestra: antes se tragaba y, como el bloque de hallazgos
+      // se renderiza solo si `findings` existe, un 500 del backend hacía
+      // desaparecer toda la sección sin ninguna señal de que algo falló.
+      setFindingsError(messagesFromError(err)[0]);
+      return null;
+    }
   }, [id]);
 
   useEffect(() => {
@@ -250,14 +264,20 @@ export default function ScanDetail() {
     }
   };
 
-  const reanalyze = async () => {
+  // No hay botón de "re-analizar" en la interfaz a propósito. Reprocesar
+  // vuelve a interpretar la evidencia cruda ya guardada con los parsers
+  // actuales: sirve después de cambiar un parser, no en el uso diario. El
+  // endpoint sigue disponible (POST /scans/{id}/analyze) para lanzarlo por
+  // consola. Para volver a barrer el objetivo está "Relanzar barrido".
+  const relanzar = async () => {
     setBusy(true);
+    setAviso(null);
     try {
-      await analyzeScan(id);
-      let n = 0;
-      const iv = setInterval(async () => { await loadFindings(); if (++n >= 4) clearInterval(iv); }, 1500);
-    } catch { /* noop */ } finally {
-      setTimeout(() => setBusy(false), 1500);
+      const nuevo = await relaunchScan(id);
+      navigate(`/scans/${nuevo.id}`);
+    } catch (err) {
+      setAviso(messagesFromError(err)[0]);
+      setBusy(false);
     }
   };
 
@@ -284,11 +304,17 @@ export default function ScanDetail() {
             )}
           </div>
         </div>
+        {aviso && <p className="detail-aviso">{aviso}</p>}
         {terminal && (
           <div className="detail-actions-top">
             <a className="btn btn-primary" href={reportUrl(id)}>Exportar informe</a>
-            <button className="btn btn-ghost" disabled={busy} onClick={reanalyze}>
-              {busy ? "Reprocesando…" : "Re-analizar"}
+            <button
+              className="btn btn-ghost"
+              disabled={busy}
+              onClick={relanzar}
+              title="Vuelve a ejecutar el barrido sobre el mismo objetivo, en un análisis nuevo"
+            >
+              {busy ? "…" : "Relanzar barrido"}
             </button>
           </div>
         )}
@@ -327,6 +353,20 @@ export default function ScanDetail() {
       )}
 
       {terminal && findings && <FindingsList data={findings} />}
+      {terminal && !findings && (
+        <div className="findings-wrap">
+          <p className="section-label">
+            <span className="section-label-text">hallazgos</span>
+          </p>
+          {findingsError ? (
+            <p className="modal-err">
+              No se pudieron cargar los hallazgos: {findingsError}
+            </p>
+          ) : (
+            <p className="muted">Cargando hallazgos…</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
