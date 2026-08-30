@@ -1,15 +1,9 @@
 import { NavLink, Outlet, useLocation, useParams, useNavigate } from "react-router-dom";
 import { ScanLine, FileText, LayoutDashboard, Users, LogOut } from "lucide-react";
 import { useAuth } from "../auth.jsx";
-import logoVectus from "../assets/logo-vectus.png";
+import BrandMark from "./BrandMark.jsx";
 import ThemeSwitch from "./ThemeSwitch.jsx";
 import SidebarFolders from "./SidebarFolders.jsx";
-
-function BrandMark() {
-  // Logo corporativo de Vectus. El isotipo provisional de arcos quedó
-  // archivado en `assets/brandmark-arcos-legacy.svg`.
-  return <img className="brand-logo" src={logoVectus} alt="Vectus" />;
-}
 
 const NAV = [
   { group: "análisis", items: [

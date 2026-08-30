@@ -29,11 +29,19 @@
   --teal: #2DD4BF;
 
   /* Severidad / veredicto */
-  --sev-critica: #B91C1C;
-  --sev-alta: #C2410C;
-  --sev-media: #B45309;
-  --sev-baja: #2DD4BF;      /* teal */
-  --sev-info: #7E8DA3;      /* navy suave, legible sobre dark */
+  /* Rampa de severidad del tema OSCURO (F14d). Antes compartía los valores
+     del tema claro: rojos y naranjas pensados para fondo blanco, que sobre
+     el panel #141C2A daban 2.64:1 (crítica), 3.30:1 (alta) y 3.40:1 (media),
+     todos por debajo de AA. La revisión de D42 no cubrió esta familia.
+     Los valores nuevos conservan el tono y escalonan la luminancia a
+     propósito, para que la jerarquía se lea además del color:
+       crítica 6.18:1 · alta 7.55:1 · media 10.23:1 · baja 9.18:1 · info 6.66:1
+     Peor par en distancia perceptual (alta vs media): dE 31.4. */
+  --sev-critica: #F87171;
+  --sev-alta: #FB923C;
+  --sev-media: #FBBF24;
+  --sev-baja: #2DD4BF;      /* teal, ya cumplía */
+  --sev-info: #94A3B8;
 
   /* Compat con nombres previos usados en componentes */
   --green: #2DD4BF;
@@ -71,6 +79,13 @@
   --brand-blue: #4E86D6;
   --brand-gray: #A8ADB6;
   --brand-sky: #8FB6E0;
+
+  /* Sombras y realces (F15e). Antes eran literales sueltos en las reglas:
+     legítimos —una sombra no debe teñirse con la paleta— pero incumplían
+     la regla de "todo color va a una variable". */
+  --shadow-1: rgba(0, 0, 0, 0.5);
+  --shadow-2: rgba(0, 0, 0, 0.9);
+  --sheen: rgba(255, 255, 255, 0.28);
   color-scheme: dark;
 }
 
@@ -79,16 +94,19 @@
    ~1.7:1), así que acá se oscurece a un cyan profundo y el texto sobre el
    acento pasa a blanco mediante --accent-ink. */
 [data-theme="light"] {
-  --bg: #ECF0F6;   /* más gris que antes: con #F5F7FA los paneles blancos
-                      casi no se distinguían del fondo. */
+  /* F14h — el lienzo baja otro escalón. Con #ECF0F6 la separación de
+     luminancia panel/fondo era 13.2 y el conjunto se leía como una masa
+     blanca. Ahora es 18.8: los paneles flotan de verdad. El tinte azul
+     es intencional; el gris neutro dejaba huérfana a la marca, que es azul. */
+  --bg: #E4E9F2;
   --bg-2: #FFFFFF;
   --panel: #FFFFFF;
-  --panel-2: #F3F6FB;
-  --border: #D0D8E4;
-  --border-strong: #AEBACB;
-  --text: #2B3646;
-  --text-hi: #0D1520;
-  --muted: #54627A;  /* más oscuro: los grises se confundían con el blanco */
+  --panel-2: #F2F5FA;
+  --border: #C3CCDC;         /* #D0D8E4 daba 1.17:1: una línea que no existía */
+  --border-strong: #9AA8BF;
+  --text: #26313F;           /* 13.18:1 sobre panel */
+  --text-hi: #0D1520;        /* 18.72:1 */
+  --muted: #5A6880;          /* 5.64:1 */
 
   --accent: #0B6980;
   --accent-2: #0F766E;
@@ -116,6 +134,10 @@
   --brand-blue: #1E5098;
   --brand-gray: #878789;
   --brand-sky: #6991BF;
+
+  --shadow-1: rgba(15, 23, 42, 0.10);
+  --shadow-2: rgba(15, 23, 42, 0.5);
+  --sheen: rgba(255, 255, 255, 0.55);
   color-scheme: light;
 }
 
@@ -128,6 +150,8 @@ body {
   color: var(--text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;   /* faltaba: a peso 400 sobre fondo
+     oscuro el renderizado por subpixel deja rebordes de color en los trazos */
   line-height: 1.5;
 }
 
@@ -290,17 +314,6 @@ a { color: inherit; text-decoration: none; }
 .tag-soon { color: var(--muted); border-color: var(--border-strong); }
 
 /* Buttons */
-.btn {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  font-weight: 500;
-  padding: 10px 16px;
-  border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease, opacity 120ms ease;
-}
-.btn-primary { background: var(--accent); color: var(--accent-ink); }
 .btn-primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.12); }
 .btn-primary:disabled {
   background: transparent;
@@ -327,16 +340,21 @@ a { color: inherit; text-decoration: none; }
   font-family: var(--font-mono);
   margin-left: 6px;
 }
+/* RESTAURADA (F15b). El script de fusión de duplicados de F14d buscó
+   `.auth-note {` al inicio de línea y borró desde ahí hasta el `}`. Como
+   `.auth-note` era el ÚLTIMO selector de un grupo de tres, se llevó puesto
+   el bloque de declaraciones de los tres: los campos perdieron ancho,
+   padding y fondo. Lección: nunca borrar por selector sin verificar que no
+   sea parte de una lista. */
 .field input,
 .field select,
 .auth-note {
   width: 100%;
   background: var(--panel-2);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
   color: var(--text-hi);
-  font-size: 14px;
-  padding: 11px 13px;
+  font-size: 14.5px;
+  padding: 12px 14px;
   font-family: var(--font-sans);
 }
 .field input::placeholder,
@@ -395,7 +413,17 @@ a { color: inherit; text-decoration: none; }
   flex-shrink: 0;
   cursor: pointer;
 }
-.auth-note { font-size: 12.5px; resize: vertical; }
+.auth-note {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-hi);
+  font-size: 12.5px;
+  padding: 11px 13px;
+  font-family: var(--font-sans);
+  resize: vertical;
+}
 
 /* Errores de formulario */
 .form-errors {
@@ -409,36 +437,12 @@ a { color: inherit; text-decoration: none; }
 .form-errors p:last-child { margin-bottom: 0; }
 
 /* Badges de estado */
-.badge {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.5px;
-  padding: 3px 9px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  text-transform: lowercase;
-}
 .badge-lg { font-size: 13px; padding: 5px 12px; }
-.badge-creado {
-  color: var(--blue);
-  border-color: color-mix(in srgb, var(--blue) 35%, transparent);
-  background: color-mix(in srgb, var(--blue) 8%, transparent);
-}
 .badge-en_cola,
 .badge-corriendo {
   color: var(--yellow);
   border-color: color-mix(in srgb, var(--yellow) 35%, transparent);
   background: color-mix(in srgb, var(--yellow) 8%, transparent);
-}
-.badge-completado {
-  color: var(--green);
-  border-color: color-mix(in srgb, var(--green) 35%, transparent);
-  background: color-mix(in srgb, var(--green) 8%, transparent);
-}
-.badge-error {
-  color: var(--red);
-  border-color: color-mix(in srgb, var(--red) 35%, transparent);
-  background: color-mix(in srgb, var(--red) 8%, transparent);
 }
 
 /* Lista de barridos recientes */
@@ -531,7 +535,6 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ── Ejecución en vivo (F2) ── */
-.exec-wrap { margin-top: 8px; }
 
 .exec-top {
   display: flex;
@@ -586,14 +589,6 @@ a { color: inherit; text-decoration: none; }
 .stage-label { color: var(--text-hi); font-size: 14px; }
 
 .tool-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.chip {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  border: 1px solid var(--border-strong);
-  color: var(--muted);
-}
 .chip-corriendo { color: var(--yellow); border-color: color-mix(in srgb, var(--yellow) 40%, transparent); }
 .chip-completada { color: var(--green); border-color: color-mix(in srgb, var(--green) 40%, transparent); }
 .chip-error { color: var(--red); border-color: color-mix(in srgb, var(--red) 40%, transparent); }
@@ -614,7 +609,6 @@ a { color: inherit; text-decoration: none; }
 .launch-btn { width: auto; min-width: 220px; }
 
 /* ── Hallazgos (F3) ── */
-.findings-wrap { margin-top: 34px; }
 .section-label .btn-sm {
   padding: 4px 10px;
   font-size: 11px;
@@ -624,13 +618,6 @@ a { color: inherit; text-decoration: none; }
   line-height: 1;
 }
 a.btn-sm { color: var(--muted); }
-.btn-ghost {
-  background: transparent;
-  border: 1px solid var(--border-strong);
-  color: var(--muted);
-  border-radius: 6px;
-  cursor: pointer;
-}
 .btn-ghost:hover:not(:disabled) { color: var(--text-hi); border-color: var(--accent); }
 .btn-ghost:disabled { opacity: 0.5; cursor: default; }
 
@@ -660,13 +647,12 @@ a.btn-sm { color: var(--muted); }
   color: var(--muted);
 }
 .sev-critica { border-top-color: var(--sev-critica); }
-.sev-alta { border-top-color: var(--red); }
-.sev-media { border-top-color: var(--yellow); }
-.sev-baja { border-top-color: var(--blue); }
+.sev-alta { border-top-color: var(--sev-alta); }
+.sev-media { border-top-color: var(--sev-media); }
+.sev-baja { border-top-color: var(--sev-baja); }
 .sev-info { border-top-color: var(--border-strong); }
 .sev-total { border-top-color: var(--accent); }
 
-.findings-meta { font-size: 11px; color: var(--muted); margin: 0 0 18px; }
 
 .finding-list { display: flex; flex-direction: column; gap: 8px; }
 .finding {
@@ -688,11 +674,6 @@ a.btn-sm { color: var(--muted); }
 .finding-tool { font-size: 11px; color: var(--muted); }
 
 .badge-sev { text-transform: uppercase; font-size: 10px; }
-.badge-sev.sev-critica { color: #fff; background: var(--sev-critica); border-color: var(--sev-critica); }
-.badge-sev.sev-alta { color: var(--red); border-color: color-mix(in srgb, var(--red) 40%, transparent); }
-.badge-sev.sev-media { color: var(--yellow); border-color: color-mix(in srgb, var(--yellow) 40%, transparent); }
-.badge-sev.sev-baja { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 40%, transparent); }
-.badge-sev.sev-info { color: var(--muted); border-color: var(--border-strong); }
 .badge-validar {
   color: var(--yellow);
   border-color: color-mix(in srgb, var(--yellow) 40%, transparent);
@@ -758,11 +739,6 @@ a.btn-sm { color: var(--muted); }
   color: var(--text);
 }
 .chip-sm { font-size: 11px; padding: 1px 7px; }
-.chip.sev-critica { color: #fff; background: var(--sev-critica); border-color: var(--sev-critica); }
-.chip.sev-alta { color: var(--red); border-color: color-mix(in srgb, var(--red) 40%, transparent); }
-.chip.sev-media { color: var(--yellow); border-color: color-mix(in srgb, var(--yellow) 40%, transparent); }
-.chip.sev-baja { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 40%, transparent); }
-.chip-validar { color: var(--yellow); border-color: color-mix(in srgb, var(--yellow) 40%, transparent); }
 
 .history { display: flex; flex-direction: column; }
 .history-head, .history-row {
@@ -788,7 +764,6 @@ a.btn-sm { color: var(--muted); }
 .h-target:hover { text-decoration: underline; }
 .h-sev { display: flex; }
 .sev-mini { display: flex; gap: 4px; flex-wrap: wrap; }
-.sev-none { font-size: 11px; color: var(--green); font-family: var(--font-mono); }
 .h-actions { display: flex; gap: 12px; }
 .link-sm { color: var(--muted); font-size: 12px; text-decoration: none; }
 .link-sm:hover { color: var(--accent); }
@@ -819,8 +794,9 @@ body { font-weight: 400; letter-spacing: -0.006em; }
   border-bottom: 1px solid var(--border);
 }
 .brand-mark { width: 30px; height: 30px; flex: none; }
-/* Logo corporativo (assets/logo-vectus.png). No es cuadrado (200x178), así
-   que se fija la altura y el ancho sale solo: forzar 30x30 lo deformaba. */
+/* `.brand-logo` era el <img> del PNG; desde F14h el isotipo es SVG inline
+   (components/BrandMark.jsx) y usa `.brand-mark`. Se deja la regla por si
+   algún lugar todavía referencia la clase vieja. */
 .brand-logo { height: 28px; width: auto; flex: none; display: block; }
 .brand-text { font-size: 15px; font-weight: 400; color: var(--text-hi); letter-spacing: -0.01em; }
 .brand-text b { color: var(--accent); font-weight: 500; }
@@ -891,22 +867,6 @@ body { font-weight: 400; letter-spacing: -0.006em; }
 .btn-ghost:hover:not(:disabled) { color: var(--text-hi); border-color: var(--accent); }
 
 /* ── Scanners ── */
-.scanner-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; }
-.scanner { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 20px; display: flex; flex-direction: column; gap: 12px; transition: border-color 130ms ease; }
-/* El botón ya no ocupa todo el ancho de la tarjeta: un primario a ancho
-   completo grita más que el contenido que lo justifica. */
-.scanner .btn { align-self: flex-start; width: auto; padding: 10px 20px; }
-.scanner.enabled:hover { border-color: var(--border-strong); }
-.scanner.disabled { opacity: 0.5; }
-.scanner-top { display: flex; align-items: center; justify-content: space-between; }
-.scanner-ico { width: 40px; height: 40px; border-radius: var(--radius-sm); display: grid; place-items: center;
-  background: color-mix(in srgb, var(--accent) 7%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
-.scanner.disabled .scanner-ico { background: var(--panel-2); border-color: var(--border); color: var(--muted); }
-.scanner-ico svg { width: 20px; height: 20px; }
-.scanner-name { font-size: 17px; font-weight: 400; color: var(--text-hi);
-  letter-spacing: -0.015em; }
-.scanner-desc { font-size: 13px; color: var(--muted); flex: 1; line-height: 1.55; }
 .pill { font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
   padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--muted); }
 .pill.on { color: var(--accent-2); border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
@@ -958,7 +918,7 @@ body { font-weight: 400; letter-spacing: -0.006em; }
 .modal-warn { margin: 12px 0 0; font-size: 13px; color: var(--sev-alta); }
 .modal-err { margin: 12px 0 0; font-size: 13px; color: var(--sev-critica); }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
-.btn-danger { background: var(--sev-critica); color: #fff; border-color: var(--sev-critica); }
+.btn-danger { background: var(--sev-critica); color: var(--accent-ink); border-color: var(--sev-critica); }
 .btn-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--sev-critica) 88%, white);
   border-color: color-mix(in srgb, var(--sev-critica) 88%, white); }
 .btn-danger:disabled { opacity: 0.55; cursor: default; }
@@ -971,8 +931,6 @@ body { font-weight: 400; letter-spacing: -0.006em; }
 .kpi.accent .kpi-num { color: var(--accent); }
 
 .panel-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; }
-.panel-title { font-size: 13px; font-weight: 500; color: var(--text-hi); margin: 0 0 16px;
-  font-family: var(--font-mono); letter-spacing: 0.4px; text-transform: uppercase; font-size: 11px; color: var(--muted); }
 .sevbar-row { display: grid; grid-template-columns: 80px 1fr 40px; gap: 12px; align-items: center; margin-bottom: 11px; }
 .sevbar-row:last-child { margin-bottom: 0; }
 .sevbar-name { font-size: 12px; color: var(--text); }
@@ -984,7 +942,6 @@ body { font-weight: 400; letter-spacing: -0.006em; }
 .fill-media { background: var(--sev-media); }
 .fill-baja { background: var(--sev-baja); }
 
-.dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
 @media (max-width: 860px) {
   .app-shell { grid-template-columns: 1fr; }
@@ -1003,9 +960,9 @@ body { font-weight: 400; letter-spacing: -0.006em; }
 .act-date { color: var(--muted); font-size: 11px; text-align: right; }
 
 /* ── Severidad: chips y badges a la paleta del brief ── */
-.chip.sev-critica { color: #fff; background: var(--sev-critica); border-color: var(--sev-critica); }
-.chip.sev-alta { color: #fff; background: var(--sev-alta); border-color: var(--sev-alta); }
-.chip.sev-media { color: #fff; background: var(--sev-media); border-color: var(--sev-media); }
+.chip.sev-critica { color: var(--sev-critica); border-color: var(--sev-critica); }
+.chip.sev-alta { color: var(--sev-alta); border-color: color-mix(in srgb, var(--sev-alta) 45%, transparent); }
+.chip.sev-media { color: var(--sev-media); border-color: color-mix(in srgb, var(--sev-media) 45%, transparent); }
 .chip.sev-baja { color: var(--accent-ink); background: var(--sev-baja); border-color: var(--sev-baja); }
 .chip-validar { color: var(--sev-media); border-color: color-mix(in srgb, var(--sev-media) 50%, transparent); background: transparent; }
 .sev-none { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
@@ -1015,14 +972,18 @@ body { font-weight: 400; letter-spacing: -0.006em; }
   border: 1px solid var(--border-strong); color: var(--muted); text-transform: lowercase; letter-spacing: 0.3px; }
 .badge-completado { color: var(--accent-2); border-color: color-mix(in srgb, var(--accent) 40%, transparent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
 .badge-corriendo, .badge-en_cola { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
-.badge-error { color: #fff; background: var(--sev-critica); border-color: var(--sev-critica); }
-.badge-creado { color: var(--muted); }
+.badge-error { color: var(--sev-critica); border-color: color-mix(in srgb, var(--sev-critica) 45%, transparent); }
+.badge-creado {
+  color: var(--muted);
+  border-color: color-mix(in srgb, var(--blue) 35%, transparent);
+  background: color-mix(in srgb, var(--blue) 8%, transparent);
+}
 
 /* Badges de severidad (vista de hallazgos, F3) a la paleta */
-.badge-sev.sev-critica { color: #fff; background: var(--sev-critica); border-color: var(--sev-critica); }
+.badge-sev.sev-critica { color: var(--sev-critica); border-color: var(--sev-critica); }
 .badge-sev.sev-alta { color: var(--sev-alta); border-color: color-mix(in srgb, var(--sev-alta) 50%, transparent); }
 .badge-sev.sev-media { color: var(--sev-media); border-color: color-mix(in srgb, var(--sev-media) 50%, transparent); }
-.badge-sev.sev-baja { color: var(--sev-baja); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.badge-sev.sev-baja { color: var(--sev-baja); border-color: color-mix(in srgb, var(--sev-baja) 50%, transparent); }
 .badge-sev.sev-info { color: var(--muted); border-color: var(--border-strong); }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1086,7 +1047,10 @@ body { font-weight: 400; letter-spacing: -0.006em; }
 }
 .meta-strip b { font-weight: 500; color: var(--text-hi); }
 
-.exec-wrap { margin-bottom: 34px; }
+.exec-wrap {
+  margin-top: 8px;
+  margin-bottom: 34px;
+}
 .findings-wrap { margin-top: 8px; }
 
 @media (max-width: 720px) {
@@ -1340,8 +1304,6 @@ body { font-weight: 400; letter-spacing: -0.006em; }
 /* Sin `font: inherit`: esta regla va después de .nav-eyebrow y le pisaría la
    tipografía mono y el espaciado. Solo se neutralizan los estilos propios
    del <button>. */
-.nav-section-toggle { width: 100%; background: none; border: none;
-  cursor: pointer; text-align: left; }
 .nav-section-toggle:hover { color: var(--text-hi); }
 /* La cabecera de Carpetas usa la MISMA tipografía y métrica que los ítems
    del menú (Scanners / Informes / Usuarios): 14px, peso 500, ícono de 17px
@@ -1439,7 +1401,18 @@ a.hero-stat:hover { background: var(--panel-2); }
 /* Dos paneles */
 .dash-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
   gap: 14px; }
-.panel-title { display: flex; align-items: center; justify-content: space-between; }
+.panel-title {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  margin: 0 0 16px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
 .panel-link { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px;
   font-weight: 400; color: var(--muted); text-decoration: none;
   text-transform: none; letter-spacing: 0; }
@@ -1469,11 +1442,14 @@ a.hero-stat:hover { background: var(--panel-2); }
 .col-fecha { width: 62px; text-align: right; color: var(--muted); font-size: 11.5px; }
 .dot-sev { display: inline-grid; place-items: center; min-width: 21px; height: 19px;
   padding: 0 5px; border-radius: 5px; font-family: var(--font-mono); font-size: 11px;
-  color: #fff; }
+  /* --accent-ink se invierte entre temas: tinta oscura sobre los rellenos
+     claros del tema oscuro, blanca sobre los oscuros del tema claro. Con
+     #fff fijo, al aclarar la rampa en F14d media caia a 1.67:1. */
+  color: var(--accent-ink); }
 .dot-sev.sev-critica { background: var(--sev-critica); }
 .dot-sev.sev-alta { background: var(--sev-alta); }
 .dot-sev.sev-media { background: var(--sev-media); }
-.dot-sev.sev-baja { background: var(--sev-baja); color: var(--accent-ink); }
+.dot-sev.sev-baja { background: var(--sev-baja); }
 
 @media (max-width: 1080px) {
   .hero { grid-template-columns: 1fr; gap: 20px; }
@@ -1481,3 +1457,1107 @@ a.hero-stat:hover { background: var(--panel-2); }
     border-left: none; border-top: 1px solid var(--border); }
   .dash-grid { grid-template-columns: 1fr; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   F14f — Capa visual
+   Esto no corrige nada: cambia cómo se siente la interfaz. Va al final a
+   propósito, para que quede aislado y se pueda revertir sin tocar el resto.
+
+   Cuatro ideas:
+   1. Las superficies dejan de ser rectángulos planos. Un realce interior
+      de 1px arriba simula luz cenital: es lo que separa un panel dibujado
+      de un panel que parece un objeto.
+   2. Todo lo que responde al mouse tiene una transición. La interfaz sin
+      transiciones se siente barata aunque los colores estén bien.
+   3. Entrada escalonada al cargar una vista, como en el login.
+   4. Los números importantes se leen como números importantes.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Superficies con volumen ─────────────────────────────────────── */
+.hero, .panel-card, .kpi, .rep-table, .modal-box, .stat-card {
+  box-shadow:
+    inset 0 1px 0 0 color-mix(in srgb, var(--text-hi) 6%, transparent),
+    0 1px 2px -1px var(--shadow-1),
+    0 8px 24px -20px var(--shadow-2);
+  transition: border-color 200ms ease, box-shadow 200ms ease,
+              transform 200ms cubic-bezier(.22,.61,.36,1);
+}
+[data-theme="light"] .hero,
+[data-theme="light"] .panel-card,
+[data-theme="light"] .kpi,
+[data-theme="light"] .rep-table,
+[data-theme="light"] .modal-box,
+[data-theme="light"] .stat-card {
+  box-shadow:
+    inset 0 1px 0 0 var(--sheen),
+    0 1px 2px -1px var(--shadow-1),
+    0 12px 28px -24px var(--shadow-2);
+}
+/* Las tarjetas accionables se levantan; los paneles de datos no se mueven
+   (un panel que salta al pasar el mouse distrae de lo que dice). */
+
+/* ── 2. El número principal, como número principal ──────────────────── */
+.hero-num {
+  font-family: var(--font-mono);
+  font-size: 68px;
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+  margin: 10px 0 20px;
+}
+.hero-num.hay {
+  /* Degradado sutil del texto claro al acento: el número se vuelve el
+     punto más brillante de la pantalla, que es lo que corresponde. */
+  background: linear-gradient(180deg, var(--text-hi) 35%,
+              color-mix(in srgb, var(--accent) 55%, var(--text-hi)) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hero-stat-num { font-variant-numeric: tabular-nums; font-size: 21px; }
+
+/* La barra segmentada: más alta, con separación entre tramos. */
+.segbar { height: 14px; gap: 2px; background: transparent; border-radius: 4px; }
+.segbar span {
+  border-radius: 2px;
+  transition: flex-basis 600ms cubic-bezier(.22,.61,.36,1), opacity 200ms ease;
+}
+.segbar:hover span { opacity: 0.45; }
+.segbar span:hover { opacity: 1; }
+
+/* ── 3. Entrada escalonada de la vista ──────────────────────────────── */
+@keyframes vsRise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.page-head,
+.dash-filtros,
+.hero,
+.dash-grid,
+.page-head    { animation-delay: 0ms; }
+.dash-filtros { animation-delay: 60ms; }
+.hero         { animation-delay: 110ms; }
+.dash-grid    { animation-delay: 170ms; }
+
+/* Las filas de scanner entran una detrás de otra. */
+.srow-list > * { animation: vsRise 520ms cubic-bezier(.22,.61,.36,1) both; }
+.srow-list > *:nth-child(1) { animation-delay: 160ms; }
+.srow-list > *:nth-child(2) { animation-delay: 220ms; }
+.srow-list > *:nth-child(3) { animation-delay: 280ms; }
+.srow-list > *:nth-child(n+4) { animation-delay: 340ms; }
+
+/* ── 4. Filas de tabla con respuesta ────────────────────────────────── */
+.rep-row {
+  position: relative;
+  transition: background 160ms ease, padding-left 160ms ease;
+}
+.rep-row::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+  background: var(--accent);
+  transform: scaleY(0); transform-origin: center;
+  transition: transform 200ms cubic-bezier(.22,.61,.36,1);
+}
+.rep-row:hover::before { transform: scaleY(1); }
+.rep-row:hover { padding-left: 20px; }
+
+/* Lo mismo para la lista de objetivos del dashboard. */
+.dash-table tbody tr { transition: background 160ms ease; }
+.dash-table tbody tr:hover { background: var(--panel-2); }
+
+/* ── 5. Navegación lateral ──────────────────────────────────────────── */
+.nav-item {
+  transition: background 160ms ease, color 160ms ease, padding-left 160ms ease;
+}
+.nav-item:hover { padding-left: 15px; }
+.nav-item svg { transition: transform 200ms cubic-bezier(.22,.61,.36,1); }
+.nav-item:hover svg { transform: scale(1.1); }
+/* La marca activa crece desde el centro en vez de aparecer de golpe. */
+.nav-item.active::before {
+  transform: scaleY(1);
+  transition: transform 240ms cubic-bezier(.22,.61,.36,1);
+}
+.nav-item::before {
+  content: ""; position: absolute; left: -10px; top: 7px; bottom: 7px;
+  width: 3px; border-radius: 0 3px 3px 0; background: var(--accent);
+  transform: scaleY(0);
+  transition: transform 240ms cubic-bezier(.22,.61,.36,1);
+}
+
+/* ── 6. Botones con respuesta física ────────────────────────────────── */
+.btn {
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease,
+              transform 120ms ease, box-shadow 200ms ease, filter 160ms ease;
+}
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 6px 20px -8px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.app-shell .btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+}
+
+/* ── 7. Foco visible ────────────────────────────────────────────────
+   NO se aplica dentro de .login-screen: ahí los campos son una línea
+   inferior que crece desde el centro, y un anillo cuadrado la destruye.
+   (Regresión de F14f: el campo de correo quedó encajonado.) */
+.app-shell a:focus-visible,
+.app-shell button:focus-visible,
+.app-shell select:focus-visible,
+.app-shell input:focus-visible,
+.app-shell summary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+  border-radius: var(--radius-sm);
+}
+
+/* ── 8. Chips y badges: transición al aparecer ──────────────────────── */
+.chip, .badge, .badge-sev, .dot-sev {
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+
+/* ── 9. Ancho de contenido ──────────────────────────────────────────── */
+/* El contenedor real es `.page-wrap`, no `.content` (esta regla apuntaba a
+   una clase inexistente y no hacía nada). 920px dejaba media pantalla vacía
+   en un monitor de trabajo y la tabla de informes tiene siete columnas. */
+.page-wrap { max-width: 1400px; padding: 40px 40px 90px; }
+
+/* ── 10. Respeto por quien no quiere movimiento ─────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .page-head, .dash-filtros, .hero, .dash-grid, .srow-list,
+  .rep-table, .kpi-row, .srow-list > * {
+    animation: none;
+  }
+  .btn:active:not(:disabled) { transform: none; }
+  .rep-row:hover { padding-left: 16px; }
+  .nav-item:hover { padding-left: 12px; }
+}
+
+/* ── 11. Gráfico de tendencia ───────────────────────────────────────── */
+/* Las barras crecen desde la base al entrar. `preserveAspectRatio="none"`
+   deforma el SVG, así que la animación va sobre transform del <rect> con
+   origen abajo, que no depende de la escala. */
+@keyframes vsGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.chart-svg rect {
+  transform-origin: 50% 100%;
+  animation: vsGrow 700ms cubic-bezier(.22,.61,.36,1) both;
+  transition: opacity 160ms ease;
+}
+.chart-svg:hover rect { opacity: 0.4; }
+.chart-svg rect:hover { opacity: 1; }
+.chart-stack { position: relative; }
+.chart-xaxis { transition: color 160ms ease; }
+
+/* Retardo por columna: la tendencia se dibuja de izquierda a derecha. */
+.chart-svg rect:nth-child(-n+3)  { animation-delay: 200ms; }
+.chart-svg rect:nth-child(n+4)   { animation-delay: 240ms; }
+.chart-svg rect:nth-child(n+7)   { animation-delay: 280ms; }
+.chart-svg rect:nth-child(n+10)  { animation-delay: 320ms; }
+.chart-svg rect:nth-child(n+13)  { animation-delay: 360ms; }
+.chart-svg rect:nth-child(n+16)  { animation-delay: 400ms; }
+
+/* ── 12. Barra superior: que se despegue del contenido al hacer scroll ── */
+.topbar2 {
+  position: sticky; top: 0; z-index: 20;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: var(--topbar-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── 13. Sidebar: separación real del contenido ─────────────────────── */
+.sidebar { box-shadow: 1px 0 0 0 var(--border); border-right: none; }
+.sidebar-brand { transition: background 200ms ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .chart-svg rect { animation: none; }
+}
+
+/* La barra vacía (0 vulnerabilidades) necesita recuperar su fondo: la regla
+   `.segbar` de arriba lo puso transparente y va después de `.segbar-vacia`. */
+.segbar-vacia { background: var(--panel-2); border-radius: 999px; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   F14g — El interior comparte el lenguaje del login
+   El login tiene trama, profundidad y aire. El interior era un panel plano
+   sobre un fondo plano. Esto los une.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── La trama técnica, ahora también adentro ────────────────────────── */
+.app-shell { position: relative; }
+.main::before {
+  content: ""; position: fixed; inset: 0 0 0 var(--sidebar-w);
+  pointer-events: none; z-index: 0;
+  background-image:
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 44px 44px;
+  opacity: 0.30;
+  -webkit-mask: radial-gradient(ellipse 90% 70% at 50% 0%, #000 5%, transparent 75%);
+  mask: radial-gradient(ellipse 90% 70% at 50% 0%, #000 5%, transparent 75%);
+}
+[data-theme="light"] .main::before { opacity: 0.55; }
+.topbar2, .page-wrap { position: relative; z-index: 1; }
+
+/* Halo de acento detrás de la cabecera: el mismo gesto del login, apagado. */
+.main::after {
+  content: ""; position: fixed; z-index: 0; pointer-events: none;
+  top: -260px; left: calc(var(--sidebar-w) + 8%); width: 620px; height: 620px;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--accent) 10%, transparent) 0%, transparent 68%);
+}
+[data-theme="light"] .main::after {
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 68%);
+}
+
+/* ── Sidebar: menos caja, más columna ──────────────────────────────── */
+.sidebar { background: color-mix(in srgb, var(--panel) 55%, var(--bg)); }
+.sidebar-brand { padding: 22px 18px 20px; }
+.nav { padding: 10px 12px; }
+.nav-eyebrow { font-size: 9.5px; opacity: 0.75; padding: 20px 12px 8px; }
+.nav-item { border-radius: 8px; }
+.nav-item.active {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+.nav-item.active svg { color: var(--accent); }
+
+/* ── Tarjetas: más aire y una veta de acento arriba ─────────────────── */
+
+/* ── Cabecera de página: más aire arriba y una regla divisoria ──────── */
+.page-head { margin-bottom: 34px; padding-bottom: 22px;
+  border-bottom: 1px solid var(--border); }
+.page-sub { font-size: 14.5px; }   /* 300 no esta bundleado: caia a 400 */
+
+/* ── Barra superior más alta y con la ruta destacada ────────────────── */
+.topbar2 { height: 62px; }
+.topbar-meta { font-size: 12px; letter-spacing: 0.02em; }
+
+/* ── Paneles del dashboard ──────────────────────────────────────────── */
+.panel-card { padding: 22px 24px; }
+.hero { padding: 30px 32px; border-radius: 14px; }
+
+/* ── Tablas: cabecera más discreta, filas más altas ─────────────────── */
+.rep-head { background: transparent; font-size: 9.5px; opacity: 0.8;
+  padding-top: 14px; padding-bottom: 14px; }
+.rep-row { padding-top: 15px; padding-bottom: 15px; }
+
+@media (prefers-reduced-motion: reduce) {
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   F14h — Ajustes del tema claro y del isotipo
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* El sidebar en claro necesita ser MÁS oscuro que el lienzo, no más claro:
+   la mezcla de F14g lo dejaba casi blanco, indistinguible de los paneles. */
+[data-theme="light"] .sidebar {
+  background: color-mix(in srgb, var(--bg) 65%, var(--panel));
+  box-shadow: 1px 0 0 0 var(--border);
+}
+/* La trama en claro estaba muy marcada y ensuciaba el fondo. */
+[data-theme="light"] .main::before { opacity: 0.38; background-size: 48px 48px; }
+[data-theme="light"] .login-screen::before { opacity: 0.42; }
+
+/* La barra superior en claro tiene que separarse del contenido. */
+[data-theme="light"] .topbar2 { border-bottom-color: var(--border-strong); }
+
+/* Filas: en claro el hover blanco sobre blanco no se ve. */
+[data-theme="light"] .rep-row:hover,
+[data-theme="light"] .dash-table tbody tr:hover { background: var(--panel-2); }
+
+/* El isotipo, ahora vectorial: alto fijo y ancho automático porque no es
+   cuadrado (200x178). Forzarlo a cuadrado lo deformaba. */
+.brand-mark { height: 30px; width: auto; display: block; flex: none; }
+.login-brand .brand-mark { height: 34px; }
+.brand-mark path { transition: fill 300ms ease; }
+.sidebar-brand:hover .brand-mark path { fill: var(--accent); }
+
+/* La marca del sidebar, con el aire que pide el isotipo nuevo. */
+.brand-text { font-size: 15.5px; letter-spacing: -0.015em; }
+.brand-text b { color: var(--text-hi); }
+.brand-text span { color: var(--muted); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   F14i — Pasada final de estilo
+   Cubre lo que faltaba: carpetas, progreso del barrido, hallazgos,
+   formularios, modales, vacíos y barras de desplazamiento.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Carpetas en la barra lateral ───────────────────────────────────── */
+.nav-section-toggle {
+  border-radius: 8px;
+  transition: background 160ms ease, color 160ms ease;
+}
+.nav-section-toggle:hover { background: color-mix(in srgb, var(--text-hi) 5%, transparent); }
+.nav-folder-name { transition: color 160ms ease; }
+.nav-folder-count {
+  font-family: var(--font-mono); font-size: 10px;
+  min-width: 20px; height: 18px; padding: 0 6px;
+  display: inline-grid; place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-hi) 7%, transparent);
+  color: var(--muted);
+  transition: background 160ms ease, color 160ms ease;
+}
+.nav-item:hover .nav-folder-count,
+.nav-item.active .nav-folder-count {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+.nav-add {
+  border-radius: 7px; opacity: 0.6;
+  transition: opacity 160ms ease, background 160ms ease, transform 160ms ease;
+}
+.nav-add:hover {
+  opacity: 1; transform: rotate(90deg);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.nav-newfolder input { border-radius: 8px; }
+
+/* ── Progreso del barrido: el momento más importante del producto ───── */
+.progress-track { height: 6px; border-radius: 999px; overflow: hidden; position: relative; }
+.progress-track > * { transition: width 700ms cubic-bezier(.22,.61,.36,1); }
+/* Brillo que recorre la barra SOLO mientras hay un barrido en curso.
+   El estado no está en la barra sino en un badge de la página, así que se
+   consulta con :has(). Si el navegador no lo soporta, no hay brillo — que
+   es el comportamiento correcto por defecto: un barrido terminado con la
+   barra parpadeando para siempre es peor que sin efecto. */
+.app-shell:has(.badge-corriendo, .badge-en_cola) .progress-track::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent,
+    var(--sheen), transparent);
+  transform: translateX(-100%);
+  animation: vsSweep 2.1s ease-in-out infinite;
+}
+@keyframes vsSweep { to { transform: translateX(200%); } }
+
+.stage-row {
+  border-radius: 10px;
+  transition: background 200ms ease, border-color 200ms ease;
+}
+.stage-row:hover { background: var(--panel-2); }
+.stage-order {
+  font-family: var(--font-mono);
+  transition: color 200ms ease, background 200ms ease;
+}
+/* La etapa en curso se destaca. El estado NO está en la fila: está en un
+   badge hijo (`badge badge-<status>`), así que la fila se selecciona por
+   lo que contiene. Sin :has() la fila queda neutra, que es aceptable. */
+.stage-row:has(.badge-corriendo) {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+.stage-row:has(.badge-corriendo) .stage-label { color: var(--accent); }
+.stage-row:has(.badge-corriendo) .stage-order {
+  animation: vsPulse 1.8s ease-in-out infinite;
+}
+@keyframes vsPulse { 0%,100% { opacity: 1 } 50% { opacity: 0.45 } }
+.tool-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+
+/* ── Bloques de severidad del detalle ───────────────────────────────── */
+.sev-tile {
+  border-radius: 12px;
+  transition: transform 200ms cubic-bezier(.22,.61,.36,1), border-color 200ms ease;
+}
+.sev-tile:hover { transform: translateY(-2px); }
+.sev-tile-num { font-variant-numeric: tabular-nums; letter-spacing: -0.035em; }
+.sev-hero { gap: 12px; }
+
+/* ── Hallazgos: acordeón con jerarquía ──────────────────────────────── */
+.finding {
+  border-radius: 10px; overflow: hidden;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+.finding:hover { border-color: var(--border-strong); }
+.finding[open] {
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  box-shadow: 0 8px 24px -20px var(--shadow-2);
+}
+.finding > summary { transition: background 160ms ease; }
+.finding > summary::after {
+  content: "›"; margin-left: auto; color: var(--muted);
+  font-size: 17px; line-height: 1;
+  transition: transform 220ms cubic-bezier(.22,.61,.36,1), color 160ms ease;
+}
+.finding[open] > summary::after { transform: rotate(90deg); color: var(--accent); }
+.finding-detail dt { letter-spacing: 0.1em; }
+
+/* ── Formularios ────────────────────────────────────────────────────── */
+.app-shell input, .app-shell select, .app-shell textarea {
+  border-radius: 8px;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+.app-shell input:hover:not(:focus),
+.app-shell select:hover:not(:focus) { border-color: var(--border-strong); }
+/* El <select> nativo no acepta flecha propia sin quitarle la apariencia. */
+.app-shell select {
+  appearance: none; -webkit-appearance: none;
+  padding-right: 34px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 17px) calc(50% + 1px), calc(100% - 12px) calc(50% + 1px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+/* ── Compuerta de autorización: es la barrera del principio rector ──── */
+.auth-gate-head { gap: 10px; }
+.auth-lock { color: var(--accent); }
+.auth-note {
+  border-left-width: 3px;
+  border-radius: 0 10px 10px 0;
+}
+.auth-check { transition: color 160ms ease; }
+.auth-check:hover { color: var(--text-hi); }
+
+/* ── Modales ────────────────────────────────────────────────────────── */
+.modal-overlay { backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+.modal-box {
+  border-radius: 14px;
+  animation: vsModal 260ms cubic-bezier(.22,.61,.36,1) both;
+}
+@keyframes vsModal {
+  from { opacity: 0; transform: translateY(12px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── Vacíos: informar, no dejar un hueco ────────────────────────────── */
+.empty {
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+  padding: 42px 24px;
+  text-align: center;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--panel) 45%, transparent);
+}
+
+/* ── Barras de desplazamiento a tono ────────────────────────────────── */
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 3px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* ── Selección de texto con el acento ───────────────────────────────── */
+::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--text-hi);
+}
+
+/* ── Etiquetas de sección del detalle ───────────────────────────────── */
+.section-label { gap: 12px; }
+.section-label-text { letter-spacing: 0.14em; }
+.section-rule { background: var(--border); height: 1px; flex: 1; }
+
+/* ── Franja de metadatos ────────────────────────────────────────────── */
+.meta-strip { border-radius: 10px; }
+.detail-hero { border-radius: 14px; }
+.detail-target { letter-spacing: -0.01em; }
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell:has(.badge-corriendo, .badge-en_cola) .progress-track::after,
+  .stage-row:has(.badge-corriendo) .stage-order { animation: none; }
+  .modal-box { animation: none; }
+  .sev-tile:hover { transform: none; }
+  .nav-add:hover { transform: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   F15 — Sin cajas
+   La tarjeta con borde, sombra y botón adentro es el patrón por defecto de
+   cualquier plantilla. Acá se reemplaza por filas separadas por una línea
+   de 1px, que es como una consola lista cosas.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Scanners: filas, no tarjetas ───────────────────────────────────── */
+.srow-list { display: flex; flex-direction: column; }
+.srow {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 20px; align-items: start;
+  padding: 26px 4px 26px 0;
+  border-top: 1px solid var(--border);
+  position: relative;
+  transition: background 200ms ease;
+}
+.srow:last-child { border-bottom: 1px solid var(--border); }
+/* Marca de acento a la izquierda, fuera del flujo: la fila no se mueve. */
+.srow::before {
+  content: ""; position: absolute; left: -18px; top: -1px; bottom: -1px;
+  width: 2px; background: var(--accent);
+  transform: scaleY(0); transform-origin: center;
+  transition: transform 240ms cubic-bezier(.22,.61,.36,1);
+}
+.srow.is-on:hover::before { transform: scaleY(1); }
+.srow.is-on:hover { background: color-mix(in srgb, var(--text-hi) 3%, transparent); }
+.srow.is-off { opacity: 0.55; }
+
+.srow-mark { color: var(--muted); padding-top: 2px; transition: color 200ms ease; }
+.srow-mark svg { width: 26px; height: 26px; stroke-width: 1.4; }
+.srow.is-on:hover .srow-mark { color: var(--accent); }
+
+.srow-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 7px; }
+.srow-name {
+  font-size: 20px; font-weight: 400; letter-spacing: -0.025em;
+  color: var(--text-hi); margin: 0;
+}
+.srow-state {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--muted);
+}
+.srow-state.on { color: var(--accent); }
+.srow-state.on::before {
+  content: "●"; margin-right: 6px; font-size: 8px; vertical-align: 1px;
+}
+.srow-desc {
+  margin: 0; color: var(--muted); font-size: 14px;
+  line-height: 1.6; max-width: 62ch;
+}
+/* Las herramientas reales dicen más del producto que la descripción. */
+.srow-stack {
+  list-style: none; display: flex; flex-wrap: wrap; gap: 6px;
+  margin: 14px 0 0; padding: 0;
+}
+.srow-stack li {
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--muted);
+  padding: 3px 8px; border-radius: 4px;
+  background: color-mix(in srgb, var(--text-hi) 6%, transparent);
+  transition: color 200ms ease, background 200ms ease;
+}
+.srow.is-on:hover .srow-stack li {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.srow-action { padding-top: 4px; }
+.srow-go {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: none; border: 1px solid var(--border-strong);
+  color: var(--text-hi); font-family: var(--font-sans);
+  font-size: 13.5px; font-weight: 500;
+  padding: 10px 18px; border-radius: 8px; cursor: pointer; white-space: nowrap;
+  transition: border-color 200ms ease, background 200ms ease, color 200ms ease;
+}
+.srow-go svg { transition: transform 220ms cubic-bezier(.22,.61,.36,1); }
+.srow-go:hover {
+  border-color: var(--accent); color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.srow-go:hover svg { transform: translateX(4px); }
+.srow-na {
+  font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+  letter-spacing: 0.08em; white-space: nowrap;
+}
+
+/* ── Hallazgos: filas con barra de severidad ────────────────────────── */
+.fx-list { list-style: none; margin: 0; padding: 0; }
+.fx {
+  border-top: 1px solid var(--border);
+  position: relative;
+  transition: background 180ms ease;
+}
+.fx:last-child { border-bottom: 1px solid var(--border); }
+/* La severidad es una barra continua a la izquierda: recorriendo la lista
+   se ve el perfil de riesgo sin leer una sola palabra. */
+.fx::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+}
+.fx.sev-critica::before { background: var(--sev-critica); }
+.fx.sev-alta::before    { background: var(--sev-alta); }
+.fx.sev-media::before   { background: var(--sev-media); }
+.fx.sev-baja::before    { background: var(--sev-baja); }
+.fx.sev-info::before    { background: var(--border-strong); }
+.fx:hover { background: color-mix(in srgb, var(--text-hi) 3%, transparent); }
+
+.fx-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 15px 14px 15px 20px;
+  cursor: pointer; list-style: none;
+}
+.fx-head::-webkit-details-marker { display: none; }
+.fx-idx { font-size: 11px; color: var(--muted); flex: none; width: 20px; }
+.fx-sev {
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  flex: none; min-width: 62px;
+}
+.fx.sev-critica .fx-sev { color: var(--sev-critica); }
+.fx.sev-alta .fx-sev    { color: var(--sev-alta); }
+.fx.sev-media .fx-sev   { color: var(--sev-media); }
+.fx.sev-baja .fx-sev    { color: var(--sev-baja); }
+.fx-title {
+  flex: 1; min-width: 0; color: var(--text-hi); font-size: 14.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fx-flag {
+  font-size: 10px; letter-spacing: 0.1em; color: var(--sev-media);
+  border: 1px solid color-mix(in srgb, var(--sev-media) 45%, transparent);
+  border-radius: 4px; padding: 2px 7px; flex: none;
+}
+.fx-count { font-size: 11px; color: var(--muted); flex: none; }
+.fx-tool { font-size: 11px; color: var(--muted); flex: none; }
+.fx-caret {
+  flex: none; width: 8px; height: 8px; border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted); transform: rotate(-45deg);
+  transition: transform 240ms cubic-bezier(.22,.61,.36,1), border-color 180ms ease;
+}
+details[open] > .fx-head .fx-caret {
+  transform: rotate(45deg); border-color: var(--accent);
+}
+
+.fx-body { padding: 2px 20px 24px 52px; }
+.fx-meta { display: flex; flex-wrap: wrap; gap: 8px 10px; margin-bottom: 16px; }
+.fx-meta-item {
+  display: inline-flex; align-items: stretch;
+  border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+  max-width: 100%;
+}
+.fx-meta-item b {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 400;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+  padding: 5px 9px; background: color-mix(in srgb, var(--text-hi) 5%, transparent);
+  display: flex; align-items: center; flex: none;
+}
+.fx-meta-item code {
+  font-family: var(--font-mono); font-size: 12px; color: var(--text);
+  padding: 5px 10px; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.fx-block { margin-bottom: 15px; }
+.fx-block:last-child { margin-bottom: 0; }
+.fx-block-label {
+  font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 7px;
+}
+/* La evidencia es una traza HTTP, no un párrafo: se muestra como tal, con
+   su propia superficie, ancho contenido y scroll horizontal si hace falta. */
+.fx-pre {
+  margin: 0; padding: 13px 15px;
+  background: color-mix(in srgb, var(--bg) 65%, var(--panel));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: var(--font-mono); font-size: 11.5px; line-height: 1.65;
+  color: var(--text);
+  white-space: pre-wrap; word-break: break-word;
+  max-height: 260px; overflow: auto;
+}
+.fx-text { margin: 0; color: var(--text); font-size: 13.5px; line-height: 1.65; max-width: 78ch; }
+.fx-refs { font-size: 12px; word-break: break-all; color: var(--muted); }
+
+/* ── Barra lateral ──────────────────────────────────────────────────── */
+/* El activo deja de ser un rectángulo relleno: una regla de acento a la
+   izquierda y el texto encendido. Menos peso, más preciso. */
+.nav-item.active { background: transparent; color: var(--accent); }
+.nav-item.active::before { left: 0; width: 2px; border-radius: 0; }
+.nav-item:hover:not(.active) {
+  background: color-mix(in srgb, var(--text-hi) 4%, transparent);
+  color: var(--text-hi);
+}
+.nav-item { padding-left: 14px; }
+.nav-item:hover { padding-left: 16px; }
+.nav-item svg { width: 17px; height: 17px; stroke-width: 1.6; }
+
+.nav-eyebrow {
+  font-size: 9px; letter-spacing: 0.2em; opacity: 1;
+  color: var(--muted); padding: 22px 14px 9px;
+  display: flex; align-items: center; gap: 9px;
+}
+/* Línea que completa el rótulo hasta el borde: estructura, no decoración. */
+.nav-eyebrow::after {
+  content: ""; flex: 1; height: 1px; background: var(--border);
+}
+.nav-folder-count { background: transparent; font-size: 10.5px; }
+.nav-item:hover .nav-folder-count,
+.nav-item.active .nav-folder-count { background: transparent; color: var(--accent); }
+
+.sidebar-brand {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .srow.is-on:hover::before { transform: scaleY(1); }
+  .nav-item:hover { padding-left: 14px; }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   F15b — Formulario, severidad y hallazgos
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Formulario: campos con línea, no con caja ──────────────────────── */
+/* La caja rectangular alrededor de cada input es lo que más "plantilla"
+   se ve. Se reemplaza por una superficie sin borde con una línea inferior
+   que se enciende: el mismo gesto del login, ahora en toda la consola. */
+.form { max-width: 640px; }
+.field { margin-bottom: 24px; }
+.field label {
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+}
+.app-shell .field input,
+.app-shell .field select,
+.app-shell .auth-note {
+  background: color-mix(in srgb, var(--text-hi) 3.5%, transparent);
+  border: 1px solid transparent;
+  border-bottom: 1px solid var(--border-strong);
+  border-radius: 6px 6px 0 0;
+  padding: 13px 14px;
+  font-size: 15px;
+  transition: background 200ms ease, border-color 200ms ease;
+}
+.app-shell .field input:hover,
+.app-shell .field select:hover { border-bottom-color: var(--muted); }
+.app-shell .field input:focus,
+.app-shell .field select:focus,
+.app-shell .auth-note:focus {
+  outline: none;
+  border-bottom-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  box-shadow: none;
+}
+.hint { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+.optional { letter-spacing: 0.1em; }
+
+/* La compuerta de autorización es la barrera del principio rector: tiene
+   que verse como una declaración, no como un recuadro más del formulario. */
+.auth-gate {
+  border: none; border-left: 3px solid var(--sev-media);
+  border-radius: 0 12px 12px 0;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--sev-media) 8%, transparent), transparent 55%);
+  padding: 22px 24px;
+}
+.auth-gate-title { letter-spacing: 0.16em; color: var(--sev-media); }
+.auth-lock { color: var(--sev-media); }
+
+/* ── Severidad del detalle: una tira, no seis cajas ─────────────────── */
+/* Seis cajas iguales con un número adentro es la definición de tarjeta de
+   plantilla. Ahora es una sola tira: los números al frente, separados por
+   una línea, y el color en el numeral en vez de en un borde decorativo. */
+.sev-hero {
+  display: flex; gap: 0; margin-bottom: 18px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+.sev-tile {
+  flex: 1; min-width: 0;
+  background: transparent; border: none; border-radius: 0;
+  padding: 20px 4px 18px 20px;
+  position: relative;
+  transition: background 200ms ease;
+}
+.sev-tile + .sev-tile { border-left: 1px solid var(--border); }
+.sev-tile::before { display: none; }
+.sev-tile:hover { background: color-mix(in srgb, var(--text-hi) 3%, transparent); }
+.sev-tile:hover { transform: none; }
+.sev-tile-num {
+  font-family: var(--font-mono); font-size: 42px; font-weight: 400;
+  letter-spacing: -0.05em; color: var(--text-hi);
+  font-variant-numeric: tabular-nums;
+}
+.sev-tile-lbl { letter-spacing: 0.16em; font-size: 9.5px; }
+/* El color va en el número. Un cero se apaga: no hay nada que destacar. */
+.tile-critica .sev-tile-num { color: var(--sev-critica); }
+.tile-alta .sev-tile-num    { color: var(--sev-alta); }
+.tile-media .sev-tile-num   { color: var(--sev-media); }
+.tile-baja .sev-tile-num    { color: var(--sev-baja); }
+.tile-info .sev-tile-num    { color: var(--muted); }
+.tile-total { background: transparent; }
+.tile-total .sev-tile-num { color: var(--text-hi); }
+.tile-total .sev-tile-lbl { color: var(--text); }
+
+/* ── Hallazgos: menos ángulos, más aire ─────────────────────────────── */
+/* Los metadatos estaban en cajitas con borde. Ahora son texto separado por
+   una línea vertical: la información sin el envase. */
+.fx-meta {
+  gap: 0; margin-bottom: 20px;
+  border-left: 2px solid var(--border);
+  padding-left: 14px;
+  flex-direction: column;
+}
+.fx-meta-item {
+  border: none; border-radius: 0; display: flex; align-items: baseline;
+  gap: 12px; padding: 3px 0; max-width: 100%;
+}
+.fx-meta-item b {
+  background: transparent; padding: 0; min-width: 62px;
+  font-size: 9.5px; letter-spacing: 0.16em;
+}
+.fx-meta-item code {
+  padding: 0; white-space: normal; word-break: break-all;
+  color: var(--text-hi); font-size: 12.5px;
+}
+
+/* La evidencia pierde el marco: queda una superficie hundida con una regla
+   del color de la severidad. Se lee como una cita técnica, no como una caja. */
+.fx-pre {
+  border: none; border-left: 2px solid var(--border-strong);
+  border-radius: 0 8px 8px 0;
+  background: color-mix(in srgb, var(--bg) 75%, var(--panel));
+  padding: 15px 18px;
+}
+.fx.sev-critica .fx-pre { border-left-color: color-mix(in srgb, var(--sev-critica) 60%, transparent); }
+.fx.sev-alta .fx-pre    { border-left-color: color-mix(in srgb, var(--sev-alta) 60%, transparent); }
+.fx.sev-media .fx-pre   { border-left-color: color-mix(in srgb, var(--sev-media) 60%, transparent); }
+.fx.sev-baja .fx-pre    { border-left-color: color-mix(in srgb, var(--sev-baja) 60%, transparent); }
+
+/* Al abrirse, la fila se tiñe muy suave del color de su severidad: se ve
+   dónde estás parado sin necesidad de un marco. */
+.fx:has(details[open]) { background: transparent; }
+.fx.sev-critica:has(details[open]) { background: color-mix(in srgb, var(--sev-critica) 4%, transparent); }
+.fx.sev-alta:has(details[open])    { background: color-mix(in srgb, var(--sev-alta) 4%, transparent); }
+.fx.sev-media:has(details[open])   { background: color-mix(in srgb, var(--sev-media) 4%, transparent); }
+.fx.sev-baja:has(details[open])    { background: color-mix(in srgb, var(--sev-baja) 4%, transparent); }
+.fx:has(details[open])::before { width: 3px; }
+
+.fx-head { padding: 17px 14px 17px 22px; }
+.fx-title { font-size: 15px; letter-spacing: -0.01em; }
+.fx-body { padding: 4px 24px 28px 56px; }
+.fx-block-label { letter-spacing: 0.16em; margin-bottom: 9px; }
+
+/* La franja de metadatos del detalle, sin caja */
+.meta-strip {
+  background: transparent; border: none;
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  border-radius: 0; padding: 16px 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   F15c — Desplegables, tema claro, metadatos y etapas
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── El desplegable abierto era ilegible ────────────────────────────── */
+/* Las <option> nativas NO heredan el tema: el sistema operativo las pinta
+   con su propia paleta (blanco sobre blanco en el tema oscuro). Hay que
+   darles color explícito; es lo único que el navegador permite estilar. */
+.app-shell select option,
+.app-shell select optgroup {
+  background-color: var(--panel);
+  color: var(--text-hi);
+}
+
+/* ── Tema claro: los campos no se distinguían del fondo ─────────────── */
+/* La superficie tenue funciona sobre oscuro, pero sobre blanco produce un
+   gris lavado sin borde. En claro el campo lleva fondo propio y borde
+   completo: sobre papel, un campo se marca, no se insinúa. */
+[data-theme="light"] .app-shell .field input,
+[data-theme="light"] .app-shell .field select,
+[data-theme="light"] .app-shell .auth-note {
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+}
+[data-theme="light"] .app-shell .field input:hover,
+[data-theme="light"] .app-shell .field select:hover { border-color: var(--muted); }
+[data-theme="light"] .app-shell .field input:focus,
+[data-theme="light"] .app-shell .field select:focus,
+[data-theme="light"] .app-shell .auth-note:focus {
+  border-color: var(--accent);
+  background: var(--panel);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+/* El halo de acento sobre fondo claro se ve como una mancha; se apaga. */
+[data-theme="light"] .main::after { display: none; }
+[data-theme="light"] .main::before { opacity: 0.30; }
+/* Los paneles blancos sobre lienzo claro necesitan el borde, no la sombra. */
+[data-theme="light"] .hero,
+[data-theme="light"] .panel-card,
+[data-theme="light"] .rep-table { border-color: var(--border-strong); }
+
+/* ── Franja de metadatos: columnas, no una fila de palabras pegadas ── */
+.meta-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0; margin: 0 0 30px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 0;
+}
+.meta-cell { padding: 15px 18px; min-width: 0; }
+.meta-cell + .meta-cell { border-left: 1px solid var(--border); }
+.meta-strip dt {
+  font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 6px;
+}
+.meta-strip dd {
+  margin: 0; color: var(--text-hi); font-size: 14px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.meta-ok { color: var(--sev-baja); }
+.meta-no { color: var(--sev-media); }
+
+/* ── Resumen bajo la tira de severidad ──────────────────────────────── */
+.findings-meta {
+  display: flex; gap: 26px; margin: 14px 0 30px;
+  font-size: 13px; color: var(--muted);
+}
+.findings-meta span { display: inline-flex; align-items: baseline; gap: 7px; }
+.findings-meta b {
+  font-weight: 400; font-size: 17px; color: var(--text-hi);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Etapas: filas, no tarjetas ─────────────────────────────────────── */
+/* Siete cajas apiladas era el mismo patrón de tarjeta otra vez. */
+.stage-list { display: flex; flex-direction: column; }
+.stage-row {
+  border: none; border-radius: 0;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  padding: 16px 14px 16px 4px;
+}
+.stage-list > .stage-row:last-child { border-bottom: 1px solid var(--border); }
+.stage-row:hover { background: color-mix(in srgb, var(--text-hi) 3%, transparent); }
+.stage-order {
+  font-size: 11px; color: var(--muted); letter-spacing: 0.08em;
+  min-width: 26px;
+}
+.stage-label { font-size: 14.5px; color: var(--text-hi); }
+/* Las herramientas de cada etapa pierden la píldora con borde. */
+.tool-chips .chip {
+  border: none; border-radius: 4px;
+  background: color-mix(in srgb, var(--text-hi) 6%, transparent);
+  color: var(--muted); font-size: 10.5px; padding: 3px 8px;
+}
+.stage-row:hover .tool-chips .chip { color: var(--text); }
+
+/* ── La barra de progreso, más presente ─────────────────────────────── */
+.progress-track { height: 4px; }
+.progress-meta { margin-top: 9px; font-size: 11.5px; }
+
+/* El placeholder al 70% sobre campo blanco daba 2.87:1. Sobre papel no se
+   lee: en claro va a opacidad plena, con el gris atenuado (5.64:1). */
+[data-theme="light"] .app-shell .field input::placeholder,
+[data-theme="light"] .app-shell .auth-note::placeholder {
+  color: var(--muted); opacity: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   F15d — Informes, Usuarios y paneles del Dashboard
+   Se completa el lenguaje: filas con línea de 1px en toda la consola.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Tabla de informes: sin marco exterior ──────────────────────────── */
+.rep-table {
+  border: none; border-radius: 0; overflow: visible;
+  border-top: 1px solid var(--border);
+}
+.rep-head {
+  background: transparent;
+  font-size: 9.5px; letter-spacing: 0.16em;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+}
+.rep-row { border-bottom: 1px solid var(--border); }
+.rep-row:last-child { border-bottom: 1px solid var(--border); }
+.rep-row:hover { background: color-mix(in srgb, var(--text-hi) 3%, transparent); }
+.rep-id { font-family: var(--font-mono); color: var(--accent); }
+.rep-target { color: var(--text-hi); }
+/* Las acciones aparecen al acercarse: la fila se lee sin ruido de botones. */
+.rep-actions { opacity: 0.35; transition: opacity 180ms ease; }
+.rep-row:hover .rep-actions { opacity: 1; }
+.rep-del { opacity: 0; transition: opacity 180ms ease, color 160ms ease; }
+.rep-row:hover .rep-del { opacity: 0.6; }
+.rep-del:hover { opacity: 1; color: var(--sev-critica); }
+
+/* ── Usuarios y accesos: mismo tratamiento ──────────────────────────── */
+.utable, .accesos-wrap {
+  border: none; border-radius: 0; overflow: visible;
+  border-top: 1px solid var(--border);
+}
+.utable-head, .acc-head {
+  background: transparent; color: var(--muted);
+  font-size: 9.5px; letter-spacing: 0.16em;
+  border-bottom: 1px solid var(--border);
+}
+.utable-row, .acc-row {
+  border-bottom: 1px solid var(--border);
+  transition: background 160ms ease;
+}
+.utable-row:hover, .acc-row:hover {
+  background: color-mix(in srgb, var(--text-hi) 3%, transparent);
+}
+.u-email { color: var(--text-hi); }
+.u-you {
+  font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.14em;
+  color: var(--accent); margin-left: 8px;
+}
+.u-date, .u-ip { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
+.user-create { border: none; border-left: 2px solid var(--accent);
+  border-radius: 0 10px 10px 0; background: color-mix(in srgb, var(--accent) 5%, transparent); }
+
+/* ── Paneles del Dashboard: sin caja ────────────────────────────────── */
+.hero, .panel-card {
+  background: transparent; border: none; box-shadow: none;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  padding: 26px 2px 28px;
+}
+[data-theme="light"] .hero,
+[data-theme="light"] .panel-card { border-color: var(--border); box-shadow: none; }
+.hero { padding-top: 30px; }
+.panel-title {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--muted); font-weight: 400;
+}
+.panel-link { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em; }
+/* La columna derecha del bloque principal, separada por una línea. */
+.hero-side { border-left: 1px solid var(--border); padding-left: 30px; }
+.hero-stat-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.hero-stat-lbl { letter-spacing: 0.16em; font-size: 9.5px; }
+.dash-table td { border-top-color: var(--border); }
+.dash-table tbody tr:hover td { color: var(--text-hi); }
+
+/* ── Control segmentado de período ──────────────────────────────────── */
+.segmented {
+  border: none; border-radius: 0; background: transparent;
+  border-bottom: 1px solid var(--border);
+  padding: 0; gap: 0;
+}
+.segmented button {
+  border-radius: 0; background: transparent; padding: 9px 16px;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: color 160ms ease, border-color 200ms ease;
+}
+.segmented button:hover { color: var(--text-hi); }
+.segmented button.active {
+  background: transparent; color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.dash-select { min-width: 190px; }
+
+/* ── Limpieza: las clases de tarjeta de Scanners ya no se usan ──────── */
+
+/* ── Gráfico de tendencia (F15e) ────────────────────────────────────── */
+/* El eje X pasó a estar dentro del SVG: las etiquetas se centran en su
+   columna en vez de repartirse por porcentaje en un div aparte. */
+.chart-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.chart-grid { stroke: var(--border); stroke-width: 1; }
+.chart-eje { stroke: var(--border-strong); stroke-width: 1; }
+.chart-tick {
+  fill: var(--muted); font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 0.06em;
+}
+.chart-total {
+  fill: var(--text-hi); font-family: var(--font-mono); font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0; transition: opacity 200ms ease;
+}
+.chart-col:hover .chart-total { opacity: 1; }
+.chart-vacio { fill: var(--border-strong); }
+.chart-col rect { transition: opacity 160ms ease; }
+.chart-svg:hover .chart-col rect { opacity: 0.35; }
+.chart-col:hover rect { opacity: 1; }
+/* Ya no existe el eje como div: la regla vieja queda sin efecto. */
+.chart-xaxis { display: none; }

@@ -145,29 +145,85 @@ function FindingsList({ data }) {
 
       {reportables.length === 0 && <p className="muted">Sin hallazgos reportables.</p>}
 
-      <div className="finding-list">
-        {reportables.map((f) => (
-          <details key={f.id} className="finding">
-            <summary>
-              <span className={`badge badge-sev sev-${f.severidad}`}>
-                {SEV_LABEL[f.severidad] || f.severidad}
-              </span>
-              <span className="finding-title">{f.titulo}</span>
-              {f.estado === "a_validar" && <span className="badge badge-validar">a validar</span>}
-              <span className="finding-tool mono">{f.herramienta_origen}</span>
-            </summary>
-            <dl className="finding-detail">
-              {f.sistema_afectado && (<><dt>Sistema</dt><dd className="mono">{f.sistema_afectado}</dd></>)}
-              {f.cve && f.cve !== "No aplica" && (<><dt>CVE</dt><dd className="mono">{f.cve}</dd></>)}
-              {f.cwe && (<><dt>CWE</dt><dd className="mono">{f.cwe}</dd></>)}
-              {f.evidencia && (<><dt>Evidencia</dt><dd>{f.evidencia}</dd></>)}
-              {f.recomendacion && (<><dt>Recomendación</dt><dd>{f.recomendacion}</dd></>)}
-              {f.mas_info && (<><dt>Más info</dt><dd className="mono">{f.mas_info}</dd></>)}
-              {f.ocurrencias > 1 && (<><dt>Ocurrencias</dt><dd>{f.ocurrencias}</dd></>)}
-            </dl>
-          </details>
+      {/* Lista de hallazgos (rediseñada en F15).
+
+          Antes cada hallazgo era una caja con borde y sombra, y todos los
+          campos —incluida la evidencia, que es un volcado HTTP crudo— se
+          mostraban como prosa en el mismo tratamiento. Ahora:
+          · Filas separadas por una línea, sin cajas.
+          · La severidad es una barra de color a la izquierda, no una píldora
+            suelta: al recorrer la lista se ve el perfil de riesgo de un vistazo.
+          · La evidencia va en su propio bloque monoespaciado con scroll, que
+            es lo que es: una traza técnica, no un párrafo.
+          · Los metadatos cortos (sistema, CVE, CWE, ocurrencias) van en una
+            fila de etiquetas, no en una lista de definiciones de dos columnas
+            que dejaba la mitad del ancho vacía. */}
+      <ol className="fx-list">
+        {reportables.map((f, i) => (
+          <li key={f.id} className={`fx sev-${f.severidad}`}>
+            <details>
+              <summary className="fx-head">
+                <span className="fx-idx mono">{String(i + 1).padStart(2, "0")}</span>
+                <span className="fx-sev mono">{SEV_LABEL[f.severidad] || f.severidad}</span>
+                <span className="fx-title">{f.titulo}</span>
+                {f.estado === "a_validar" && (
+                  <span className="fx-flag mono" title="Requiere validación manual">
+                    a validar
+                  </span>
+                )}
+                {f.ocurrencias > 1 && (
+                  <span className="fx-count mono" title="Ocurrencias">
+                    ×{f.ocurrencias}
+                  </span>
+                )}
+                <span className="fx-tool mono">{f.herramienta_origen}</span>
+                <span className="fx-caret" aria-hidden="true" />
+              </summary>
+
+              <div className="fx-body">
+                <div className="fx-meta">
+                  {f.sistema_afectado && (
+                    <span className="fx-meta-item">
+                      <b>sistema</b><code>{f.sistema_afectado}</code>
+                    </span>
+                  )}
+                  {f.cve && f.cve !== "No aplica" && (
+                    <span className="fx-meta-item">
+                      <b>cve</b><code>{f.cve}</code>
+                    </span>
+                  )}
+                  {f.cwe && (
+                    <span className="fx-meta-item">
+                      <b>cwe</b><code>{f.cwe}</code>
+                    </span>
+                  )}
+                </div>
+
+                {f.evidencia && (
+                  <div className="fx-block">
+                    <p className="fx-block-label mono">evidencia</p>
+                    <pre className="fx-pre">{f.evidencia}</pre>
+                  </div>
+                )}
+
+                {f.recomendacion && (
+                  <div className="fx-block">
+                    <p className="fx-block-label mono">recomendación</p>
+                    <p className="fx-text">{f.recomendacion}</p>
+                  </div>
+                )}
+
+                {f.mas_info && (
+                  <div className="fx-block">
+                    <p className="fx-block-label mono">más info</p>
+                    <p className="fx-text mono fx-refs">{f.mas_info}</p>
+                  </div>
+                )}
+              </div>
+            </details>
+          </li>
         ))}
-      </div>
+      </ol>
 
       {positivos.length > 0 && (
         <div className="positivos">
@@ -322,18 +378,36 @@ export default function ScanDetail() {
 
       {terminal && findings && <SevHero summary={findings.summary} />}
       {terminal && findings && (
-        <p className="findings-meta mono">
-          {findings.summary.a_validar} a validar · {findings.summary.positivos} buena postura
+        <p className="findings-meta">
+          <span><b className="mono">{findings.summary.a_validar}</b> a validar</span>
+          <span><b className="mono">{findings.summary.positivos}</b> buena postura</span>
         </p>
       )}
 
-      <div className="meta-strip">
-        <span><em>Proyecto</em> {scan.project.name}</span>
-        <span><em>Cliente</em> {scan.cliente || scan.project.client || "—"}</span>
-        <span><em>Responsable</em> {scan.authorization.responsible_user}</span>
-        <span><em>Autorización</em> {scan.authorization.authorized ? "✓ confirmada" : "no"}</span>
-        <span><em>Creado</em> <b className="mono">{fmtDate(scan.created_at)}</b></span>
-      </div>
+      {/* Franja de metadatos (F15c). Antes era una fila de <span> con el
+          rótulo y el valor pegados: "ProyectoPrueba 1ClientePrueba…" se leía
+          como una sola palabra. Ahora cada dato es una columna con el rótulo
+          arriba y el valor abajo, separadas por una línea. */}
+      <dl className="meta-strip">
+        <div className="meta-cell">
+          <dt>Proyecto</dt><dd>{scan.project.name}</dd>
+        </div>
+        <div className="meta-cell">
+          <dt>Cliente</dt><dd>{scan.cliente || scan.project.client || "—"}</dd>
+        </div>
+        <div className="meta-cell">
+          <dt>Responsable</dt><dd>{scan.authorization.responsible_user}</dd>
+        </div>
+        <div className="meta-cell">
+          <dt>Autorización</dt>
+          <dd className={scan.authorization.authorized ? "meta-ok" : "meta-no"}>
+            {scan.authorization.authorized ? "✓ confirmada" : "sin confirmar"}
+          </dd>
+        </div>
+        <div className="meta-cell">
+          <dt>Creado</dt><dd className="mono">{fmtDate(scan.created_at)}</dd>
+        </div>
+      </dl>
 
       {notLaunched ? (
         <div className="detail-actions">
