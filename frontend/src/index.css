@@ -61,6 +61,16 @@
   --topbar-bg: rgba(10, 15, 24, 0.86);
   --danger-text: #ffb4ae;
   --overlay: rgba(3, 6, 12, 0.72);
+
+  /* ── Colores del logo corporativo (F14a) ──
+     El azul institucional es #1E5098; sobre --bg da 2.4:1 y el trazo se
+     hunde en el fondo. Para el campo de partículas del login se usan
+     versiones aclaradas que conservan el matiz. En tema claro vuelven a
+     ser los valores originales de la marca (mismo criterio que la marca
+     de agua de F10f-j). */
+  --brand-blue: #4E86D6;
+  --brand-gray: #A8ADB6;
+  --brand-sky: #8FB6E0;
   color-scheme: dark;
 }
 
@@ -101,6 +111,11 @@
   --topbar-bg: rgba(255, 255, 255, 0.90);
   --danger-text: #9F1239;
   --overlay: rgba(17, 24, 39, 0.45);
+
+  /* Sobre fondo claro el azul institucional lee bien: la marca tal cual es. */
+  --brand-blue: #1E5098;
+  --brand-gray: #878789;
+  --brand-sky: #6991BF;
   color-scheme: light;
 }
 
@@ -1084,70 +1099,100 @@ body { font-weight: 400; letter-spacing: -0.006em; }
   gap: 10px; color: var(--muted); font-family: var(--font-mono); font-size: 13px;
 }
 
-/* ── Login ── */
+/* ── Login (rediseñado en F14a) ──────────────────────────────────────
+   La marca de agua del wordmark (máscara CSS, F10f-j) fue REEMPLAZADA por
+   el campo de partículas de `WordmarkField.jsx`, que dibuja la misma palabra
+   con la nube de puntos del logo real. Tener las dos era decir VECTUS dos
+   veces en la misma pantalla.
+   El formulario ya no vive en una tarjeta: flota sobre el campo. La caja
+   `.login-wordmark` no dibuja nada, solo reserva el espacio que el canvas
+   mide para saber dónde armar la palabra. */
 .login-screen {
   position: relative; overflow: hidden;
   min-height: 100vh; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 18px; padding: 24px;
-  background:
-    radial-gradient(1100px 500px at 50% -10%, rgba(34,211,238,0.06), transparent 60%),
-    var(--bg);
+  background: var(--bg);
 }
-/* Marca de agua del wordmark, como en el hero de vectus.la. Va como máscara
-   y no como imagen: el PNG solo aporta la silueta y el color lo pone la
-   paleta, así funciona en los dos temas sin meter el azul corporativo.
-   `pointer-events: none` para que nunca tape el formulario. */
-.login-screen::after {
-  content: ""; position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  /* Entra completo: se ajusta al ancho de la ventana con un margen mínimo,
-     tan grande como se pueda sin recortar "SOMOS TECNOLOGÍA". La tarjeta es
-     opaca y lo tapa en el centro, así que se lee alrededor del formulario. */
-  width: min(1700px, 94vw); aspect-ratio: 1342 / 336;
-  background-color: var(--text-hi); opacity: 0.13;
-  -webkit-mask: url("./assets/wordmark-vectus.png") no-repeat center / contain;
-  mask: url("./assets/wordmark-vectus.png") no-repeat center / contain;
-  pointer-events: none; z-index: 0;
+/* Rejilla técnica de fondo. Va enmascarada en radial para que se desvanezca
+   hacia los bordes y no compita con el formulario. */
+.login-screen::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background-image:
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 34px 34px; opacity: 0.42;
+  -webkit-mask: radial-gradient(ellipse 78% 68% at 50% 46%, #000 12%, transparent 80%);
+  mask: radial-gradient(ellipse 78% 68% at 50% 46%, #000 12%, transparent 80%);
 }
-/* En claro se usa la versión CON los colores originales (azul corporativo y
-   gris del subtítulo) en vez de la silueta teñida: sobre fondo claro el azul
-   lee bien y es la marca tal cual es. Se apaga la máscara y se pasa a imagen
-   de fondo; `background-color` debe quedar transparente o taparía el PNG. */
-[data-theme="light"] .login-screen::after {
-  opacity: 0.30;
-  background-color: transparent;
-  -webkit-mask: none; mask: none;
-  background: url("./assets/wordmark-vectus-color.png") no-repeat center / contain;
+[data-theme="light"] .login-screen::before { opacity: 0.75; }
+
+.login-field-canvas {
+  position: absolute; inset: 0; z-index: 0;
+  display: block; pointer-events: none;
 }
-.login-card, .login-foot { position: relative; z-index: 1; }
-.login-theme { position: absolute; top: 18px; right: 20px; z-index: 2; }
-@media (max-width: 560px) {
-  .login-screen::after { width: 96vw; opacity: 0.10; }
+.login-body, .login-foot { position: relative; z-index: 2; }
+.login-theme { position: absolute; top: 18px; right: 20px; z-index: 3; }
+
+.login-body {
+  width: 100%; max-width: 520px;
+  display: flex; flex-direction: column; align-items: center;
 }
-.login-card {
-  width: 100%; max-width: 400px;
-  background: var(--panel); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 30px 28px 26px;
-  box-shadow: 0 24px 60px -30px rgba(0,0,0,0.8);
+/* Caja del wordmark: el aspect-ratio sale del muestreo (WORDMARK_RATIO). */
+.login-wordmark { width: min(500px, 78vw); aspect-ratio: 5.1418; }
+.login-tagline {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.42em;
+  text-transform: uppercase; color: var(--muted);
+  margin: 12px 0 42px; opacity: 0; animation: loginFade 1s ease 2.1s forwards;
 }
-.login-brand {
-  display: flex; align-items: center; gap: 11px; margin-bottom: 22px;
+@keyframes loginFade { to { opacity: 1; } }
+
+.login-form { width: 100%; max-width: 400px; }
+
+/* Fila de etiqueta + estado: dos rótulos mono en una sola línea. */
+.login-row {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 14px; margin-bottom: 9px;
 }
-.login-brand .brand-mark { width: 30px; height: 30px; }
-.login-brand .brand-logo { height: 34px; }
-.login-title {
-  font-size: 21px; font-weight: 650; color: var(--text-hi);
-  margin: 6px 0 7px; letter-spacing: -0.015em;
+.login-row label { margin: 0; }
+.login-status {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--accent);
+  display: flex; align-items: center; gap: 7px; white-space: nowrap;
 }
-.login-sub { color: var(--muted); font-size: 13.5px; margin: 0 0 20px; line-height: 1.5; }
+.login-status i {
+  width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+  animation: loginPing 2.4s ease-out infinite; flex: none;
+}
+@keyframes loginPing {
+  0%   { box-shadow: 0 0 0 0 rgba(56, 219, 242, 0.5); }
+  70%  { box-shadow: 0 0 0 9px rgba(56, 219, 242, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(56, 219, 242, 0); }
+}
+
+.login-sub { color: var(--muted); font-size: 13.5px; margin: 0 0 20px;
+  line-height: 1.5; text-align: center; }
+/* Aviso compacto. Va DENTRO del formulario, no arriba: si empuja el bloque,
+   el flex centrado desplaza todo y la palabra queda pisando el texto. */
 .login-info {
-  border: 1px solid rgba(45,212,191,0.28); background: rgba(45,212,191,0.06);
-  color: var(--accent-2); border-radius: var(--radius-sm);
-  padding: 10px 13px; font-size: 12.5px; margin-bottom: 16px;
+  border: 1px solid var(--border-strong); background: var(--panel);
+  color: var(--text); border-radius: var(--radius-sm);
+  padding: 8px 12px; font-size: 12.5px; margin-bottom: 14px;
+  text-align: center;
 }
-.code-input {
-  letter-spacing: 8px; font-size: 20px; text-align: center;
+
+/* Rejilla de 6 celdas para el código. Reemplaza al input único: se puede
+   pegar el código entero, se avanza solo y el retroceso vuelve atrás. */
+.code-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.code-grid input {
+  height: 58px; width: 100%; padding: 0; text-align: center;
+  font-family: var(--font-mono); font-size: 23px; color: var(--text-hi);
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); outline: none;
+  transition: border-color .18s ease, transform .18s cubic-bezier(.22,.61,.36,1);
 }
+.code-grid input:focus { border-color: var(--accent); transform: translateY(-3px); }
+.code-grid input.lleno { border-color: var(--accent); }
+
 .login-alt { display: flex; justify-content: space-between; margin-top: 16px; }
 .linklike {
   background: none; border: none; cursor: pointer; padding: 0;
@@ -1156,6 +1201,29 @@ body { font-weight: 400; letter-spacing: -0.006em; }
 .linklike:hover:not(:disabled) { color: var(--accent); }
 .linklike:disabled { opacity: 0.5; cursor: default; }
 .login-foot { font-size: 11px; color: var(--muted); letter-spacing: 0.5px; }
+
+/* Secuencia de entrada: escalonada, y arranca después de que el wordmark
+   terminó de armarse (~1.5 s) para que no compitan. */
+@keyframes loginRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.login-seq > * { animation: loginRise .6s cubic-bezier(.22,.61,.36,1) both; }
+.login-seq > *:nth-child(1) { animation-delay: 1.50s; }
+.login-seq > *:nth-child(2) { animation-delay: 1.60s; }
+.login-seq > *:nth-child(3) { animation-delay: 1.70s; }
+.login-seq > *:nth-child(4) { animation-delay: 1.80s; }
+/* Al cambiar de paso ya no hay wordmark que esperar. */
+.login-seq.rapida > *:nth-child(1) { animation-delay: .05s; }
+.login-seq.rapida > *:nth-child(2) { animation-delay: .13s; }
+.login-seq.rapida > *:nth-child(3) { animation-delay: .21s; }
+.login-seq.rapida > *:nth-child(4) { animation-delay: .29s; }
+
+@media (max-width: 560px) {
+  .code-grid { gap: 6px; }
+  .code-grid input { height: 48px; font-size: 18px; }
+  .login-tagline { letter-spacing: 0.3em; margin-bottom: 32px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .login-seq > *, .login-tagline, .login-status i { animation: none; opacity: 1; }
+}
 
 /* ── Bloque de usuario en el sidebar ── */
 .sidebar-user {
